@@ -11,6 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+pub mod job_object;
+pub mod log;
+pub mod manager;
+pub mod process;
+
+pub use log::{LogHub, LogMessage, LogStream};
+pub use manager::SupervisorManager;
+pub use process::{ActiveProcess, ProcessConfig, ProcessError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -11,7 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+pub mod client;
+pub mod generator;
+pub mod trust;
+pub mod vhost;
+
+pub use client::{CaddyClient, CaddyClientError};
+pub use generator::CaddyConfigGenerator;
 use serde::{Deserialize, Serialize};
+pub use trust::CaddyTrustManager;
+pub use vhost::{BackendType, VirtualHostConfig};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VirtualHost {
