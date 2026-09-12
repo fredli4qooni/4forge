@@ -18,9 +18,18 @@ pub mod state;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = state::AppState::new().expect("failed to initialize 4Forge app state");
+    let supervisor = app_state.supervisor.clone();
 
     tauri::Builder::default()
         .manage(app_state)
+        .on_window_event(move |_window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let sup = supervisor.clone();
+                tokio::spawn(async move {
+                    sup.stop_all().await;
+                });
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_services,
             commands::start_service,
@@ -34,6 +43,8 @@ pub fn run() {
             commands::list_runtimes,
             commands::set_active_runtime,
             commands::get_system_overview,
+            commands::check_port_conflicts,
+            commands::suggest_alternative_port,
         ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");

@@ -47,10 +47,20 @@
     timestamp_millis: number;
   }
 
+  interface PortCheckResult {
+    port: number;
+    is_available: boolean;
+    service_name: string;
+    alternative_port: number | null;
+  }
+
   let activeTab = $state<"dashboard" | "services" | "sites" | "runtimes" | "logs">("dashboard");
   let allRunning = $state(false);
   let isLoading = $state(false);
   let toastMessage = $state<string | null>(null);
+
+  let portConflicts = $state<PortCheckResult[]>([]);
+  let dismissedConflictBanner = $state(false);
 
   let showAddSiteModal = $state(false);
   let newSiteDomain = $state("");
@@ -188,6 +198,28 @@
     if (backendLogs && backendLogs.length > 0) {
       logs = backendLogs;
     }
+
+    const portChecks = await invokeTauri<PortCheckResult[]>("check_port_conflicts");
+    if (portChecks) {
+      portConflicts = portChecks.filter((p) => !p.is_available);
+    }
+  }
+
+  function applyAlternativePort(conflict: PortCheckResult): void {
+    if (!conflict.alternative_port) return;
+    const oldP = String(conflict.port);
+    const newP = String(conflict.alternative_port);
+    services = services.map((s) => {
+      if (s.ports.includes(oldP)) {
+        return {
+          ...s,
+          ports: s.ports.replace(oldP, newP),
+        };
+      }
+      return s;
+    });
+    portConflicts = portConflicts.filter((c) => c.port !== conflict.port);
+    showToast(`Switched ${conflict.service_name} to port ${newP}`);
   }
 
   async function toggleAll(): Promise<void> {
@@ -440,6 +472,39 @@
     </header>
 
     <div class="flex-1 overflow-y-auto p-8 space-y-8">
+      {#if portConflicts.length > 0 && !dismissedConflictBanner}
+        <div class="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 flex items-center justify-between text-xs text-amber-200 shadow-xl shadow-amber-950/30">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-amber-500/20 text-amber-400">
+              <Activity class="w-5 h-5" />
+            </div>
+            <div>
+              <h4 class="font-bold text-sm text-amber-300">Port Conflict Detected</h4>
+              <p class="text-slate-300 mt-0.5">
+                {portConflicts.map((c) => `${c.service_name} (Port ${c.port} is occupied -> Suggested: ${c.alternative_port})`).join(" • ")}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            {#if portConflicts[0]?.alternative_port}
+              <button
+                onclick={() => applyAlternativePort(portConflicts[0])}
+                class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold hover:brightness-110 shadow-md transition-all"
+              >
+                Use Port {portConflicts[0].alternative_port}
+              </button>
+            {/if}
+            <button
+              onclick={() => (dismissedConflictBanner = true)}
+              class="p-1.5 rounded-xl hover:bg-amber-500/20 text-amber-300 transition-colors"
+              title="Dismiss warning"
+            >
+              <X class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      {/if}
+
       {#if activeTab === "dashboard"}
         <div class="relative overflow-hidden rounded-2xl border border-slate-800/90 bg-gradient-to-br from-slate-900/90 via-[#101827] to-[#0D1321] p-6 shadow-xl">
           <div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>

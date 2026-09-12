@@ -352,3 +352,13 @@ pub async fn get_system_overview(state: State<'_, AppState>) -> Result<SystemOve
         cpu_percent: 0.2,
     })
 }
+
+#[tauri::command]
+pub async fn check_port_conflicts() -> Result<Vec<forge_supervisor::PortCheckResult>, String> {
+    Ok(forge_supervisor::PortInspector::check_standard_ports())
+}
+
+#[tauri::command]
+pub async fn suggest_alternative_port(port: u16) -> Result<u16, String> {
+    Ok(forge_supervisor::PortInspector::suggest_alternative(port))
+}
