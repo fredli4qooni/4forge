@@ -1,0 +1,43 @@
+# Rust & Cargo
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node.js & Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+.pnpm-store/
+
+# Tauri build artifacts
+src-tauri/target/
+
+# 4Forge Local Data & Runtimes
+/data/
+/runtimes/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# Caddy dynamic certs and runtimes
+/caddy-data/
+/caddy-config/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+AGENTS.md
+PRD.md
