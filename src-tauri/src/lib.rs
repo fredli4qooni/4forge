@@ -45,6 +45,7 @@ pub fn run() {
             commands::get_system_overview,
             commands::check_port_conflicts,
             commands::suggest_alternative_port,
+            commands::check_for_updates,
         ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");
