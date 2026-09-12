@@ -11,9 +11,34 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+pub mod config;
+pub mod driver;
+pub mod manager;
+pub mod mariadb;
+pub mod postgres;
+pub mod sqlite;
+
+pub use config::{MariaDbConfig, PostgreSqlConfig};
+pub use driver::{DatabaseCommand, DatabaseDriver};
+pub use manager::DatabaseManager;
+pub use mariadb::MariaDbDriver;
+pub use postgres::PostgreSqlDriver;
+pub use sqlite::SqliteDriver;
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, thiserror::Error)]
+pub enum DatabaseError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Database driver for engine '{0:?}' not found")]
+    DriverNotFound(DatabaseEngine),
+    #[error("Serverless database engine has no background daemon")]
+    ServerlessEngine,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DatabaseEngine {
     MariaDb,
     PostgreSql,
@@ -21,10 +46,11 @@ pub enum DatabaseEngine {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DatabaseInstance {
+pub struct DatabaseInstanceInfo {
     pub engine: DatabaseEngine,
-    pub port: u16,
+    pub port: Option<u16>,
     pub data_dir: String,
+    pub is_initialized: bool,
     pub is_running: bool,
 }
 
@@ -33,14 +59,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_database_instance() {
-        let db = DatabaseInstance {
+    fn test_database_instance_info() {
+        let info = DatabaseInstanceInfo {
             engine: DatabaseEngine::MariaDb,
-            port: 3306,
+            port: Some(3306),
             data_dir: "C:\\data\\mariadb".to_string(),
+            is_initialized: true,
             is_running: false,
         };
-        assert_eq!(db.port, 3306);
-        assert_eq!(db.engine, DatabaseEngine::MariaDb);
+        assert_eq!(info.port, Some(3306));
+        assert_eq!(info.engine, DatabaseEngine::MariaDb);
+        assert!(info.is_initialized);
     }
 }
