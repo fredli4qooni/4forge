@@ -11,14 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+pub mod manager;
+pub mod manifest;
+pub mod node;
+pub mod php;
+pub mod shim;
+pub mod store;
+
+pub use manager::RuntimeManager;
+pub use manifest::{RuntimeKind, RuntimeManifest, RuntimePackage};
+pub use node::NodeRuntime;
+pub use php::{PhpConfig, PhpRuntime};
+pub use shim::EnvironmentShim;
+pub use store::{InstalledRuntime, RuntimeStore};
+
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RuntimeKind {
-    Php,
-    Node,
-    Python,
-    Ruby,
+#[derive(Debug, thiserror::Error)]
+pub enum RuntimeError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Runtime '{0}' version '{1}' is not installed")]
+    NotInstalled(RuntimeKind, String),
+    #[error("No active version configured for runtime '{0}'")]
+    NoActiveVersion(RuntimeKind),
+    #[error("Checksum mismatch for package: expected {0}, got {1}")]
+    ChecksumMismatch(String, String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
