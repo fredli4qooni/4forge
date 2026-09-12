@@ -11,29 +11,30 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use forge_supervisor::ServiceStatus;
-use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AppStateOverview {
-    pub name: String,
-    pub version: String,
-    pub status: ServiceStatus,
-}
-
-#[tauri::command]
-fn get_overview() -> AppStateOverview {
-    AppStateOverview {
-        name: "4Forge".to_string(),
-        version: env!("CARGO_PKG_VERSION").to_string(),
-        status: ServiceStatus::Stopped,
-    }
-}
+pub mod commands;
+pub mod state;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let app_state = state::AppState::new().expect("failed to initialize 4Forge app state");
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![get_overview])
+        .manage(app_state)
+        .invoke_handler(tauri::generate_handler![
+            commands::get_services,
+            commands::start_service,
+            commands::stop_service,
+            commands::restart_service,
+            commands::toggle_all_services,
+            commands::get_logs,
+            commands::list_sites,
+            commands::add_site,
+            commands::delete_site,
+            commands::list_runtimes,
+            commands::set_active_runtime,
+            commands::get_system_overview,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");
 }
