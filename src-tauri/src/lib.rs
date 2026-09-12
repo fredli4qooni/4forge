@@ -25,7 +25,7 @@ pub fn run() {
         .on_window_event(move |_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let sup = supervisor.clone();
-                tokio::spawn(async move {
+                tauri::async_runtime::spawn(async move {
                     sup.stop_all().await;
                 });
             }
