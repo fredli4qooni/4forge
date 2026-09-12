@@ -44,6 +44,7 @@ pub fn run() {
             commands::set_active_runtime,
             commands::get_system_overview,
             commands::check_port_conflicts,
+            commands::update_service_port,
             commands::suggest_alternative_port,
             commands::check_for_updates,
         ])

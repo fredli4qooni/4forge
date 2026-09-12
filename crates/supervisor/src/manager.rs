@@ -98,6 +98,22 @@ impl SupervisorManager {
         }
     }
 
+    pub async fn update_service_port(&self, name: &str, new_port: u16) -> bool {
+        let mut map = self.services.write().await;
+        if let Some(proc) = map.get_mut(name) {
+            let mut cfg = proc.config.clone();
+            cfg.port = Some(new_port);
+            *proc = Arc::new(ActiveProcess::new(
+                cfg,
+                self.job_object.clone(),
+                self.log_hub.clone(),
+            ));
+            true
+        } else {
+            false
+        }
+    }
+
     pub async fn get_service_info(&self, name: &str) -> Option<ServiceInfo> {
         let map = self.services.read().await;
         if let Some(proc) = map.get(name) {

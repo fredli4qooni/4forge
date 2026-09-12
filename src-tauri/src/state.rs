@@ -204,3 +204,37 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
 
     list
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_app_state_and_services() {
+        let state = AppState::new().expect("failed to init app state");
+        let svcs = state.supervisor.list_services().await;
+        assert_eq!(svcs.len(), 4);
+
+        let res_caddy = state.supervisor.start_service("caddy").await;
+        assert!(res_caddy.is_ok(), "caddy start failed: {:?}", res_caddy);
+        let res_mariadb = state.supervisor.start_service("mariadb").await;
+        assert!(
+            res_mariadb.is_ok(),
+            "mariadb start failed: {:?}",
+            res_mariadb
+        );
+        let res_php = state.supervisor.start_service("php").await;
+        assert!(res_php.is_ok(), "php start failed: {:?}", res_php);
+        let res_node = state.supervisor.start_service("node").await;
+        assert!(res_node.is_ok(), "node start failed: {:?}", res_node);
+
+        let running = state.supervisor.list_services().await;
+        let running_count = running
+            .iter()
+            .filter(|s| s.status == forge_supervisor::ServiceStatus::Running)
+            .count();
+        assert_eq!(running_count, 4);
+
+        state.supervisor.stop_all().await;
+    }
+}

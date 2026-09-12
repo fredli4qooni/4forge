@@ -170,14 +170,15 @@
   let activePythonVersion = $state("3.12.9");
   let activeRubyVersion = $state("3.3.7");
 
-  let isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__);
-
   async function invokeTauri<T>(cmd: string, args: Record<string, any> = {}): Promise<T | null> {
-    if (!isTauri) return null;
+    if (typeof window === "undefined") return null;
+    const hasTauri = Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__);
+    if (!hasTauri) return null;
     try {
       const { invoke } = await import("@tauri-apps/api/core");
       return await invoke<T>(cmd, args);
-    } catch {
+    } catch (err) {
+      console.error(`[4Forge IPC Error] ${cmd}:`, err);
       return null;
     }
   }
@@ -209,14 +210,14 @@
   }
 
   onMount(() => {
-    fetchBackendState();
+    fetchBackendState(true);
     const timer = setInterval(() => {
-      fetchBackendState();
-    }, 2000);
+      fetchBackendState(false);
+    }, 2500);
     return () => clearInterval(timer);
   });
 
-  async function fetchBackendState(): Promise<void> {
+  async function fetchBackendState(checkPorts: boolean = false): Promise<void> {
     const backendServices = await invokeTauri<any[]>("get_services");
     if (backendServices && backendServices.length > 0) {
       services = services.map((s) => {
@@ -243,13 +244,15 @@
       logs = backendLogs;
     }
 
-    const portChecks = await invokeTauri<PortCheckResult[]>("check_port_conflicts");
-    if (portChecks) {
-      portConflicts = portChecks.filter((p) => !p.is_available);
+    if (checkPorts) {
+      const portChecks = await invokeTauri<PortCheckResult[]>("check_port_conflicts");
+      if (portChecks) {
+        portConflicts = portChecks.filter((p) => !p.is_available);
+      }
     }
   }
 
-  function applyAlternativePort(conflict: PortCheckResult): void {
+  async function applyAlternativePort(conflict: PortCheckResult): Promise<void> {
     if (!conflict.alternative_port) return;
     const oldP = String(conflict.port);
     const newP = String(conflict.alternative_port);
@@ -263,23 +266,26 @@
       return s;
     });
     portConflicts = portConflicts.filter((c) => c.port !== conflict.port);
+    dismissedConflictBanner = true;
+    await invokeTauri("update_service_port", { id: "caddy", newPort: conflict.alternative_port });
     showToast(`Switched ${conflict.service_name} to port ${newP}`);
   }
 
   async function toggleAll(): Promise<void> {
     isLoading = true;
-    allRunning = !allRunning;
-    const targetState = allRunning;
+    const targetState = !allRunning;
 
-    if (isTauri) {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
       await invokeTauri("toggle_all_services", { start: targetState });
-      await new Promise((r) => setTimeout(r, 350));
-      await fetchBackendState();
+      await new Promise((r) => setTimeout(r, 600));
+      await fetchBackendState(true);
     } else {
       services = services.map((s) => ({
         ...s,
         status: targetState ? "running" : "stopped",
       }));
+      allRunning = targetState;
     }
 
     isLoading = false;
@@ -292,14 +298,15 @@
 
     const willStart = svc.status !== "running";
 
-    if (isTauri) {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
       if (willStart) {
         await invokeTauri("start_service", { id });
       } else {
         await invokeTauri("stop_service", { id });
       }
-      await new Promise((r) => setTimeout(r, 350));
-      await fetchBackendState();
+      await new Promise((r) => setTimeout(r, 500));
+      await fetchBackendState(true);
     } else {
       services = services.map((s) => {
         if (s.id === id) {
@@ -324,7 +331,8 @@
     const backendType = newSiteType;
     const target = newSiteTarget.trim();
 
-    if (isTauri) {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
       await invokeTauri("add_site", {
         domain,
         rootDir,
@@ -353,7 +361,8 @@
   }
 
   async function handleDeleteSite(domain: string): Promise<void> {
-    if (isTauri) {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
       await invokeTauri("delete_site", { domain });
       await fetchBackendState();
     } else {
@@ -364,33 +373,25 @@
 
   function selectPhpVersion(v: string): void {
     activePhpVersion = v;
-    if (isTauri) {
-      invokeTauri("set_active_runtime", { kind: "php", version: v });
-    }
+    invokeTauri("set_active_runtime", { kind: "php", version: v });
     showToast(`Active PHP switched to ${v}`);
   }
 
   function selectNodeVersion(v: string): void {
     activeNodeVersion = v;
-    if (isTauri) {
-      invokeTauri("set_active_runtime", { kind: "node", version: v });
-    }
+    invokeTauri("set_active_runtime", { kind: "node", version: v });
     showToast(`Active Node.js switched to ${v}`);
   }
 
   function selectPythonVersion(v: string): void {
     activePythonVersion = v;
-    if (isTauri) {
-      invokeTauri("set_active_runtime", { kind: "python", version: v });
-    }
+    invokeTauri("set_active_runtime", { kind: "python", version: v });
     showToast(`Active Python switched to ${v}`);
   }
 
   function selectRubyVersion(v: string): void {
     activeRubyVersion = v;
-    if (isTauri) {
-      invokeTauri("set_active_runtime", { kind: "ruby", version: v });
-    }
+    invokeTauri("set_active_runtime", { kind: "ruby", version: v });
     showToast(`Active Ruby switched to ${v}`);
   }
 
@@ -401,14 +402,6 @@
       return matchService && matchSearch;
     })
   );
-
-  onMount(() => {
-    fetchBackendState();
-    const timer = setInterval(() => {
-      fetchBackendState();
-    }, 3000);
-    return () => clearInterval(timer);
-  });
 </script>
 
 <div class="flex h-screen w-screen bg-[#0B0F17] text-slate-100 font-sans antialiased overflow-hidden select-none">
@@ -522,16 +515,21 @@
         <button
           disabled={isLoading}
           onclick={toggleAll}
-          class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-xs transition-all shadow-md {allRunning
+          class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-xs transition-all shadow-md {isLoading
+            ? 'opacity-70 cursor-not-allowed bg-slate-700 text-slate-300'
+            : allRunning
             ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'
             : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-emerald-500/20'}"
         >
-          {#if allRunning}
+          {#if isLoading}
+            <RefreshCw class="w-3.5 h-3.5 animate-spin" />
+            <span>Processing...</span>
+          {:else if allRunning}
             <Square class="w-3.5 h-3.5 fill-current" />
-            Stop All Services
+            <span>Stop All Services</span>
           {:else}
             <Play class="w-3.5 h-3.5 fill-current" />
-            Start All Services
+            <span>Start All Services</span>
           {/if}
         </button>
 
@@ -548,8 +546,8 @@
         </button>
 
         <button
-          onclick={fetchBackendState}
-          title="Reload Services & Logs"
+          onclick={() => fetchBackendState(true)}
+          title="Reload Services, Ports & Logs"
           class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800 transition-colors"
         >
           <RefreshCw class="w-4 h-4" />
@@ -658,6 +656,12 @@
                       <span>Ports:</span>
                       <span class="text-cyan-400 font-mono text-[11px]">{service.ports}</span>
                     </div>
+                    {#if service.pid}
+                      <div class="flex justify-between items-center text-[10px]">
+                        <span>Process PID:</span>
+                        <span class="text-emerald-400 font-mono font-bold bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">#{service.pid}</span>
+                      </div>
+                    {/if}
                   </div>
                 </div>
 

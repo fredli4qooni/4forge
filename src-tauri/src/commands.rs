@@ -406,8 +406,30 @@ pub async fn get_system_overview(state: State<'_, AppState>) -> Result<SystemOve
 }
 
 #[tauri::command]
-pub async fn check_port_conflicts() -> Result<Vec<forge_supervisor::PortCheckResult>, String> {
-    Ok(forge_supervisor::PortInspector::check_standard_ports())
+pub async fn check_port_conflicts(
+    state: State<'_, AppState>,
+) -> Result<Vec<forge_supervisor::PortCheckResult>, String> {
+    let svcs = state.supervisor.list_services().await;
+    let standard = forge_supervisor::PortInspector::check_standard_ports();
+    let filtered = standard
+        .into_iter()
+        .filter(|res| {
+            let is_own_running = svcs.iter().any(|s| {
+                s.port == Some(res.port) && s.status == forge_supervisor::ServiceStatus::Running
+            });
+            !is_own_running
+        })
+        .collect();
+    Ok(filtered)
+}
+
+#[tauri::command]
+pub async fn update_service_port(
+    state: State<'_, AppState>,
+    id: String,
+    new_port: u16,
+) -> Result<bool, String> {
+    Ok(state.supervisor.update_service_port(&id, new_port).await)
 }
 
 #[tauri::command]
