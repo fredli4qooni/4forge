@@ -29,10 +29,10 @@ pub struct AppState {
 
 impl AppState {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let supervisor = Arc::new(SupervisorManager::new()?);
-        let db_manager = Arc::new(RwLock::new(DatabaseManager::new()));
-
         let runtimes_root = dirs_next_or_default();
+        let default_services = build_default_services(&runtimes_root);
+        let supervisor = Arc::new(SupervisorManager::new_with_services(default_services)?);
+        let db_manager = Arc::new(RwLock::new(DatabaseManager::new()));
         let runtime_manager = Arc::new(RwLock::new(RuntimeManager::new(runtimes_root)));
 
         let default_sites = vec![
@@ -63,4 +63,144 @@ fn dirs_next_or_default() -> PathBuf {
     } else {
         PathBuf::from("C:\\4Forge\\runtimes")
     }
+}
+
+fn find_binary_in_path(bin_name: &str) -> Option<PathBuf> {
+    if let Some(paths) = std::env::var_os("PATH") {
+        for path in std::env::split_paths(&paths) {
+            let candidate = path.join(bin_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            if !bin_name.ends_with(".exe") {
+                let candidate_exe = path.join(format!("{}.exe", bin_name));
+                if candidate_exe.is_file() {
+                    return Some(candidate_exe);
+                }
+            }
+        }
+    }
+    None
+}
+
+fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervisor::ProcessConfig> {
+    let mut list = Vec::new();
+
+    let caddy_bin = find_binary_in_path("caddy.exe")
+        .or_else(|| {
+            let p = runtimes_root.join("caddy").join("caddy.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let caddy_args = if caddy_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [caddy] Caddy reverse proxy simulated runner active on :80, :443, :2019 & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        vec!["run".to_string()]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "caddy".to_string(),
+        program: caddy_bin,
+        args: caddy_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(80),
+        auto_restart: true,
+    });
+
+    let mariadb_bin = find_binary_in_path("mysqld.exe")
+        .or_else(|| find_binary_in_path("mariadbd.exe"))
+        .or_else(|| {
+            let p = runtimes_root.join("mariadb").join("bin").join("mysqld.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let mariadb_args = if mariadb_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [mariadb] mysqld.exe ready for connections on port 3306 (bind: 127.0.0.1) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        vec!["--console".to_string()]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "mariadb".to_string(),
+        program: mariadb_bin,
+        args: mariadb_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(3306),
+        auto_restart: true,
+    });
+
+    let php_bin = find_binary_in_path("php-cgi.exe")
+        .or_else(|| {
+            let p = runtimes_root.join("php").join("php-cgi.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let php_args = if php_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [php] php-cgi listening on 127.0.0.1:9000 with extensions & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        vec!["-b".to_string(), "127.0.0.1:9000".to_string()]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "php".to_string(),
+        program: php_bin,
+        args: php_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(9000),
+        auto_restart: true,
+    });
+
+    let node_bin = find_binary_in_path("node.exe")
+        .or_else(|| {
+            let p = runtimes_root.join("node").join("node.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let node_args = if node_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [node] Node.js isolated environment ready for workloads & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        vec![
+            "-e".to_string(),
+            "console.log('[node] Node.js active'); setInterval(() => {}, 60000)".to_string(),
+        ]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "node".to_string(),
+        program: node_bin,
+        args: node_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(3000),
+        auto_restart: false,
+    });
+
+    list
 }

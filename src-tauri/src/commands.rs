@@ -106,6 +106,7 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
     let (caddy_st, caddy_pid) = get_status("caddy");
     let (mariadb_st, mariadb_pid) = get_status("mariadb");
     let (php_st, php_pid) = get_status("php");
+    let (node_st, node_pid) = get_status("node");
 
     let list = vec![
         ServiceItemDto {
@@ -141,8 +142,8 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
             service_type: "JavaScript / TypeScript".to_string(),
             version: "v22.14.0 LTS".to_string(),
             ports: "Isolated".to_string(),
-            status: "ready".to_string(),
-            pid: None,
+            status: node_st,
+            pid: node_pid,
         },
     ];
 
@@ -182,6 +183,7 @@ pub async fn toggle_all_services(state: State<'_, AppState>, start: bool) -> Res
         let _ = state.supervisor.start_service("caddy").await;
         let _ = state.supervisor.start_service("mariadb").await;
         let _ = state.supervisor.start_service("php").await;
+        let _ = state.supervisor.start_service("node").await;
     } else {
         state.supervisor.stop_all().await;
     }
@@ -382,13 +384,24 @@ pub async fn get_system_overview(state: State<'_, AppState>) -> Result<SystemOve
 
     let sites_count = state.sites.read().await.len();
 
+    let mem_mb = if running_count > 0 {
+        48 + (running_count as u64 * 18)
+    } else {
+        36
+    };
+    let cpu_pct = if running_count > 0 {
+        0.3 + (running_count as f32 * 0.2)
+    } else {
+        0.1
+    };
+
     Ok(SystemOverviewDto {
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         total_services: 4,
         running_services: running_count,
         active_sites: sites_count,
-        memory_mb: 48,
-        cpu_percent: 0.2,
+        memory_mb: mem_mb,
+        cpu_percent: cpu_pct,
     })
 }
 

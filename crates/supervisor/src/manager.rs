@@ -38,6 +38,25 @@ impl SupervisorManager {
         })
     }
 
+    pub fn new_with_services(services: Vec<ProcessConfig>) -> Result<Self, std::io::Error> {
+        let job_object = Arc::new(JobObject::create()?);
+        let log_hub = LogHub::new(1000);
+        let mut map = HashMap::new();
+        for cfg in services {
+            let proc = Arc::new(ActiveProcess::new(
+                cfg.clone(),
+                job_object.clone(),
+                log_hub.clone(),
+            ));
+            map.insert(cfg.name.clone(), proc);
+        }
+        Ok(Self {
+            services: Arc::new(RwLock::new(map)),
+            job_object,
+            log_hub,
+        })
+    }
+
     pub async fn register_service(&self, config: ProcessConfig) {
         let mut map = self.services.write().await;
         let proc = Arc::new(ActiveProcess::new(

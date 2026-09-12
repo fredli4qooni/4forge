@@ -208,6 +208,14 @@
     isCheckingUpdate = false;
   }
 
+  onMount(() => {
+    fetchBackendState();
+    const timer = setInterval(() => {
+      fetchBackendState();
+    }, 2000);
+    return () => clearInterval(timer);
+  });
+
   async function fetchBackendState(): Promise<void> {
     const backendServices = await invokeTauri<any[]>("get_services");
     if (backendServices && backendServices.length > 0) {
@@ -265,6 +273,7 @@
 
     if (isTauri) {
       await invokeTauri("toggle_all_services", { start: targetState });
+      await new Promise((r) => setTimeout(r, 350));
       await fetchBackendState();
     } else {
       services = services.map((s) => ({
@@ -289,6 +298,7 @@
       } else {
         await invokeTauri("stop_service", { id });
       }
+      await new Promise((r) => setTimeout(r, 350));
       await fetchBackendState();
     } else {
       services = services.map((s) => {
