@@ -11,12 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-//! Windows Process Supervisor for 4Forge.
-//!
-//! Manages child process lifecycles (Caddy, MariaDB, PHP-FPM, etc.) ensuring
-//! no orphaned processes remain upon exit using Windows Job Objects.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

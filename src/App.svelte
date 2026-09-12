@@ -16,7 +16,6 @@
     Terminal,
   } from "lucide-svelte";
 
-  // Svelte 5 Runes
   let activeTab = $state<"dashboard" | "services" | "sites" | "runtimes" | "logs">("dashboard");
   let allRunning = $state(false);
 
@@ -97,9 +96,7 @@
 </script>
 
 <div class="flex h-screen w-screen bg-[#0B0F17] text-slate-100 font-sans antialiased overflow-hidden">
-  <!-- Sidebar Navigation -->
   <aside class="w-64 border-r border-slate-800/80 bg-[#0E1524]/60 backdrop-blur-xl flex flex-col shrink-0">
-    <!-- Brand Logo -->
     <div class="h-16 px-6 flex items-center gap-3 border-b border-slate-800/70">
       <div class="h-9 w-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
         <Server class="w-5 h-5 text-white" />
@@ -113,7 +110,6 @@
       </div>
     </div>
 
-    <!-- Nav Items -->
     <nav class="flex-1 px-3 py-4 space-y-1">
       <button
         onclick={() => (activeTab = "dashboard")}
@@ -166,7 +162,6 @@
       </button>
     </nav>
 
-    <!-- Bottom Metadata & Status -->
     <div class="p-4 border-t border-slate-800/70 bg-[#0B101C]/50 text-xs">
       <div class="flex items-center justify-between text-slate-400 mb-1">
         <span>Memory Shell</span>
@@ -181,9 +176,7 @@
     </div>
   </aside>
 
-  <!-- Main Content Area -->
   <main class="flex-1 flex flex-col overflow-hidden bg-gradient-to-b from-[#0F172A]/40 to-[#0B0F17]">
-    <!-- Top Action Bar -->
     <header class="h-16 border-b border-slate-800/70 px-8 flex items-center justify-between shrink-0 bg-[#0E1524]/40 backdrop-blur-md">
       <div>
         <h1 class="text-base font-semibold text-white">Local Development Environment</h1>
@@ -215,9 +208,7 @@
       </div>
     </header>
 
-    <!-- Scrollable Workspace View -->
     <div class="flex-1 overflow-y-auto p-8 space-y-8">
-      <!-- Overview Banner -->
       <div class="relative overflow-hidden rounded-2xl border border-slate-800/90 bg-gradient-to-br from-slate-900/90 via-[#101827] to-[#0D1321] p-6 shadow-xl">
         <div class="absolute -top-24 -right-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
         <div class="flex items-center justify-between relative z-10">
@@ -249,7 +240,6 @@
         </div>
       </div>
 
-      <!-- Services Grid -->
       <div>
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Core Services</h3>
@@ -304,7 +294,6 @@
         </div>
       </div>
 
-      <!-- Sites Preview Table -->
       <div>
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Virtual Hosts & Projects</h3>

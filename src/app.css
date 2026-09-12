@@ -7,8 +7,6 @@
     @apply bg-[#0B0F17] text-slate-100 font-sans;
   }
 }
-
-/* Custom smooth dark scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

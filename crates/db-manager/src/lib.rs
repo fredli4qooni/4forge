@@ -11,12 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-//! Database Lifecycle Manager for 4Forge.
-//!
-//! Manages bundled MariaDB (default), PostgreSQL, and SQLite instances,
-//! including data directory initialization, configuration, and health checks.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

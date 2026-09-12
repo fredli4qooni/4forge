@@ -11,12 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-//! Polyglot Runtime Version Manager for 4Forge.
-//!
-//! Manages downloading, extracting, verifying checksums, and switching runtime
-//! versions (PHP, Node.js, Python, Ruby) per project.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

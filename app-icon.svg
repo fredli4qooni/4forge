@@ -19,23 +19,14 @@
     </filter>
   </defs>
 
-  <!-- Base Rounded Container -->
   <rect width="512" height="512" rx="112" fill="url(#bg)" stroke="#1E293B" stroke-width="8" />
-
-  <!-- Inner Soft Glow -->
   <circle cx="256" cy="256" r="160" fill="#0EA5E9" opacity="0.12" filter="url(#glow)" />
 
-  <!-- Stylized "4" + Forge Anvil Shape -->
   <g transform="translate(116, 106)">
-    <!-- Main stem of 4 / Forge Pillar -->
     <path d="M190 20 L240 20 L240 260 L190 260 Z" fill="url(#grad)" rx="8" />
-    <!-- Diagonal stroke of 4 -->
     <path d="M190 20 L50 170 L50 210 L190 210 Z" fill="url(#grad)" rx="8" />
-    <!-- Horizontal Crossbar (Anvil table) -->
     <rect x="20" y="170" width="250" height="40" rx="10" fill="url(#grad)" />
-    <!-- Glowing core flame / spark accent -->
     <polygon points="190,170 230,130 215,170" fill="url(#accent)" />
-    <!-- Base Anvil Support -->
     <path d="M160 250 L270 250 L260 280 L170 280 Z" fill="#334155" opacity="0.9" />
   </g>
 </svg>

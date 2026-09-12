@@ -11,12 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-//! Caddy vhost & SSL dynamic configuration generator for 4Forge.
-//!
-//! Interacts with the Caddy 2 Admin API (http://localhost:2019) to dynamically
-//! load virtual hosts and maintain local auto-HTTPS certificates without server restarts.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
