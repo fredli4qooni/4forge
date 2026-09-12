@@ -16,6 +16,8 @@ pub mod manager;
 pub mod manifest;
 pub mod node;
 pub mod php;
+pub mod python;
+pub mod ruby;
 pub mod shim;
 pub mod store;
 
@@ -23,6 +25,8 @@ pub use manager::RuntimeManager;
 pub use manifest::{RuntimeKind, RuntimeManifest, RuntimePackage};
 pub use node::NodeRuntime;
 pub use php::{PhpConfig, PhpRuntime};
+pub use python::PythonRuntime;
+pub use ruby::RubyRuntime;
 pub use shim::EnvironmentShim;
 pub use store::{InstalledRuntime, RuntimeStore};
 

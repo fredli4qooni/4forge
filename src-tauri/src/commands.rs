@@ -51,10 +51,16 @@ pub struct LogMessageDto {
 pub struct RuntimeOverviewDto {
     pub available_php: Vec<String>,
     pub available_node: Vec<String>,
+    pub available_python: Vec<String>,
+    pub available_ruby: Vec<String>,
     pub installed_php: Vec<String>,
     pub installed_node: Vec<String>,
+    pub installed_python: Vec<String>,
+    pub installed_ruby: Vec<String>,
     pub active_php: Option<String>,
     pub active_node: Option<String>,
+    pub active_python: Option<String>,
+    pub active_ruby: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -298,19 +304,41 @@ pub async fn list_runtimes(state: State<'_, AppState>) -> Result<RuntimeOverview
         .map(|p| p.version)
         .collect();
 
+    let avail_python: Vec<String> = rm
+        .list_available(RuntimeKind::Python)
+        .into_iter()
+        .map(|p| p.version)
+        .collect();
+
+    let avail_ruby: Vec<String> = rm
+        .list_available(RuntimeKind::Ruby)
+        .into_iter()
+        .map(|p| p.version)
+        .collect();
+
     let installed_php = rm.list_installed(RuntimeKind::Php).unwrap_or_default();
     let installed_node = rm.list_installed(RuntimeKind::Node).unwrap_or_default();
+    let installed_python = rm.list_installed(RuntimeKind::Python).unwrap_or_default();
+    let installed_ruby = rm.list_installed(RuntimeKind::Ruby).unwrap_or_default();
 
     let active_php = rm.get_active_version(RuntimeKind::Php);
     let active_node = rm.get_active_version(RuntimeKind::Node);
+    let active_python = rm.get_active_version(RuntimeKind::Python);
+    let active_ruby = rm.get_active_version(RuntimeKind::Ruby);
 
     Ok(RuntimeOverviewDto {
         available_php: avail_php,
         available_node: avail_node,
+        available_python: avail_python,
+        available_ruby: avail_ruby,
         installed_php,
         installed_node,
+        installed_python,
+        installed_ruby,
         active_php,
         active_node,
+        active_python,
+        active_ruby,
     })
 }
 

@@ -152,6 +152,8 @@
 
   let activePhpVersion = $state("8.3.16");
   let activeNodeVersion = $state("22.14.0");
+  let activePythonVersion = $state("3.12.9");
+  let activeRubyVersion = $state("3.3.7");
 
   let isTauri = typeof window !== "undefined" && Boolean((window as any).__TAURI_INTERNALS__);
 
@@ -330,6 +332,22 @@
       invokeTauri("set_active_runtime", { kind: "node", version: v });
     }
     showToast(`Active Node.js switched to ${v}`);
+  }
+
+  function selectPythonVersion(v: string): void {
+    activePythonVersion = v;
+    if (isTauri) {
+      invokeTauri("set_active_runtime", { kind: "python", version: v });
+    }
+    showToast(`Active Python switched to ${v}`);
+  }
+
+  function selectRubyVersion(v: string): void {
+    activeRubyVersion = v;
+    if (isTauri) {
+      invokeTauri("set_active_runtime", { kind: "ruby", version: v });
+    }
+    showToast(`Active Ruby switched to ${v}`);
   }
 
   let filteredLogs = $derived(
@@ -829,6 +847,72 @@
                 {/each}
               </div>
             </div>
+
+            <div class="rounded-2xl border border-slate-800/90 bg-[#121929]/80 p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    <Terminal class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-base text-white">Python Engine</h3>
+                    <p class="text-xs text-slate-400">Isolated .venv & ASGI/WSGI runner</p>
+                  </div>
+                </div>
+                <span class="text-xs font-mono text-blue-300 bg-blue-500/20 px-2.5 py-1 rounded-full border border-blue-500/30">
+                  Active: v{activePythonVersion}
+                </span>
+              </div>
+
+              <div class="space-y-2">
+                {#each ["3.12.9"] as ver}
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-[#0B101C]/60 border border-slate-800">
+                    <span class="text-sm font-mono font-medium text-slate-200">Python {ver} (embed x64)</span>
+                    <button
+                      onclick={() => selectPythonVersion(ver)}
+                      class="px-3 py-1 rounded-lg text-xs font-medium transition-all {activePythonVersion === ver
+                        ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}"
+                    >
+                      {activePythonVersion === ver ? "Active" : "Switch"}
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-800/90 bg-[#121929]/80 p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                    <Activity class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 class="font-bold text-base text-white">Ruby Engine</h3>
+                    <p class="text-xs text-slate-400">Gem isolation & Puma / Rack runner</p>
+                  </div>
+                </div>
+                <span class="text-xs font-mono text-rose-300 bg-rose-500/20 px-2.5 py-1 rounded-full border border-rose-500/30">
+                  Active: v{activeRubyVersion}
+                </span>
+              </div>
+
+              <div class="space-y-2">
+                {#each ["3.3.7"] as ver}
+                  <div class="flex items-center justify-between p-3 rounded-xl bg-[#0B101C]/60 border border-slate-800">
+                    <span class="text-sm font-mono font-medium text-slate-200">Ruby {ver} (x64)</span>
+                    <button
+                      onclick={() => selectRubyVersion(ver)}
+                      class="px-3 py-1 rounded-lg text-xs font-medium transition-all {activeRubyVersion === ver
+                        ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}"
+                    >
+                      {activeRubyVersion === ver ? "Active" : "Switch"}
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            </div>
           </div>
         </div>
       {:else if activeTab === "logs"}
@@ -937,7 +1021,9 @@
               class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500"
             >
               <option value="fastcgi">PHP FastCGI (php-cgi)</option>
-              <option value="proxy">Node / Python Reverse Proxy</option>
+              <option value="proxy">Node.js Reverse Proxy</option>
+              <option value="python">Python FastAPI / Flask (Uvicorn)</option>
+              <option value="ruby">Ruby Rails / Sinatra (Puma)</option>
               <option value="static">Static HTML / Frontend Bundle</option>
             </select>
           </div>
