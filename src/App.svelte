@@ -601,7 +601,11 @@
                   <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   System Operational
                 </span>
-                <span class="text-xs text-slate-400">Zero port conflicts detected</span>
+                {#if portConflicts.length > 0}
+                  <span class="text-xs text-amber-400 font-medium">{portConflicts.length} port conflict detected</span>
+                {:else}
+                  <span class="text-xs text-slate-400">Zero port conflicts detected</span>
+                {/if}
               </div>
               <h2 class="text-xl font-bold text-white tracking-tight">Polyglot Development Stack Active</h2>
               <p class="text-xs text-slate-400 mt-1 max-w-xl">
