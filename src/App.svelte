@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Component } from "svelte";
   import {
     Activity,
     CheckCircle2,
@@ -14,12 +15,30 @@
     ShieldCheck,
     Square,
     Terminal,
-  } from "lucide-svelte";
+  } from "@lucide/svelte";
+
+  interface ServiceItem {
+    id: string;
+    name: string;
+    type: string;
+    version: string;
+    ports: string;
+    status: "stopped" | "running" | "ready";
+    icon: Component<any>;
+  }
+
+  interface SiteItem {
+    domain: string;
+    runtime: string;
+    ssl: boolean;
+    path: string;
+    status: string;
+  }
 
   let activeTab = $state<"dashboard" | "services" | "sites" | "runtimes" | "logs">("dashboard");
   let allRunning = $state(false);
 
-  let services = $state([
+  let services = $state<ServiceItem[]>([
     {
       id: "caddy",
       name: "Caddy Web Server",
@@ -58,7 +77,7 @@
     },
   ]);
 
-  let sites = $state([
+  let sites = $state<SiteItem[]>([
     {
       domain: "laravel-app.test",
       runtime: "PHP 8.3",
@@ -75,23 +94,23 @@
     },
   ]);
 
-  function toggleAll() {
+  function toggleAll(): void {
     allRunning = !allRunning;
-    services = services.map((s) => ({
+    services = services.map((s: ServiceItem): ServiceItem => ({
       ...s,
       status: allRunning ? "running" : "stopped",
     }));
   }
 
-  function toggleService(id: string) {
-    services = services.map((s) => {
+  function toggleService(id: string): void {
+    services = services.map((s: ServiceItem): ServiceItem => {
       if (s.id === id) {
         const nextStatus = s.status === "running" ? "stopped" : "running";
         return { ...s, status: nextStatus };
       }
       return s;
     });
-    allRunning = services.some((s) => s.status === "running");
+    allRunning = services.some((s: ServiceItem) => s.status === "running");
   }
 </script>
 
