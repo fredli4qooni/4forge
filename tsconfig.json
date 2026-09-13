@@ -10,7 +10,8 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "sourceMap": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "allowArbitraryExtensions": true
   },
   "include": ["src/**/*.d.ts", "src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
 }
