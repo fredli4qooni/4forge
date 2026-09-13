@@ -82,6 +82,7 @@
   let showUpdateModal = $state(false);
   let isCheckingUpdate = $state(false);
   let updateStatus = $state<UpdateCheck | null>(null);
+  let showDatabaseModal = $state(false);
 
   let logFilter = $state<string>("all");
   let logSearch = $state("");
@@ -207,6 +208,51 @@
       };
     }
     isCheckingUpdate = false;
+  }
+
+  async function openWebLocalhost(): Promise<void> {
+    const caddySvc = services.find((s) => s.id === "caddy");
+    const port = caddySvc && caddySvc.ports.includes("8080") ? "8080" : "80";
+    const url = port === "80" ? "http://localhost" : `http://localhost:${port}`;
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      await invokeTauri("open_browser", { url });
+    } else {
+      window.open(url, "_blank");
+    }
+    showToast(`Opening ${url} in browser...`);
+  }
+
+  async function openProjectsDirectory(): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      await invokeTauri("open_projects_folder", {});
+      showToast("Opening projects folder in Windows Explorer...");
+    } else {
+      showToast("Opened projects folder: C:\\4forge\\projects");
+    }
+  }
+
+  async function openDevTerminal(): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      await invokeTauri("open_system_terminal", {});
+      showToast("Launching 4Forge Dev Shell (PowerShell with PATH)...");
+    } else {
+      showToast("Dev Terminal simulated: PHP, Node, MariaDB in PATH");
+    }
+  }
+
+  async function openDatabaseAction(): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      const launched = await invokeTauri<boolean>("open_database_gui");
+      if (launched) {
+        showToast("Database client launched successfully!");
+        return;
+      }
+    }
+    showDatabaseModal = true;
   }
 
   onMount(() => {
@@ -511,14 +557,14 @@
         <p class="text-xs text-slate-400">Windows Native • Apache-2.0 Pure Open Source</p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <button
           disabled={isLoading}
           onclick={toggleAll}
-          class="flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-xs transition-all shadow-md {isLoading
+          class="flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs transition-all shadow-md {isLoading
             ? 'opacity-70 cursor-not-allowed bg-slate-700 text-slate-300'
             : allRunning
-            ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25'
+            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
             : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-emerald-500/20'}"
         >
           {#if isLoading}
@@ -526,12 +572,52 @@
             <span>Processing...</span>
           {:else if allRunning}
             <Square class="w-3.5 h-3.5 fill-current" />
-            <span>Stop All Services</span>
+            <span>Stop All</span>
           {:else}
             <Play class="w-3.5 h-3.5 fill-current" />
-            <span>Start All Services</span>
+            <span>Start All</span>
           {/if}
         </button>
+
+        <div class="h-6 w-px bg-slate-800 mx-1"></div>
+
+        <button
+          onclick={openWebLocalhost}
+          title="Open localhost in Default Web Browser"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-semibold transition-all hover:border-cyan-500/50"
+        >
+          <Globe class="w-3.5 h-3.5 text-cyan-400" />
+          <span>Web</span>
+        </button>
+
+        <button
+          onclick={openDatabaseAction}
+          title="Open Database GUI / Management"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-semibold transition-all hover:border-emerald-500/50"
+        >
+          <Database class="w-3.5 h-3.5 text-emerald-400" />
+          <span>Database</span>
+        </button>
+
+        <button
+          onclick={openDevTerminal}
+          title="Open Terminal with 4Forge PHP, Node, MariaDB in PATH"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-semibold transition-all hover:border-amber-500/50"
+        >
+          <Terminal class="w-3.5 h-3.5 text-amber-400" />
+          <span>Terminal</span>
+        </button>
+
+        <button
+          onclick={openProjectsDirectory}
+          title="Open Projects Directory in Windows Explorer"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-200 hover:text-white bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 text-xs font-semibold transition-all hover:border-blue-500/50"
+        >
+          <FolderKanban class="w-3.5 h-3.5 text-blue-400" />
+          <span>Root</span>
+        </button>
+
+        <div class="h-6 w-px bg-slate-800 mx-1"></div>
 
         <button
           onclick={() => {
@@ -539,10 +625,9 @@
             checkUpdates();
           }}
           title="Check for Updates & Security Integrity"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-slate-300 hover:text-white bg-slate-800/40 hover:bg-slate-800/80 border border-slate-700/60 text-xs font-medium transition-all"
+          class="flex items-center gap-1 px-2.5 py-2 rounded-xl text-slate-400 hover:text-slate-200 bg-slate-800/40 hover:bg-slate-800/80 border border-slate-800 text-xs font-medium transition-all"
         >
           <Sparkles class="w-3.5 h-3.5 text-cyan-400" />
-          <span>v0.1.0</span>
         </button>
 
         <button
@@ -1204,6 +1289,78 @@
             class="px-4 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:brightness-110 shadow-lg shadow-cyan-500/20 transition-all"
           >
             Close
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showDatabaseModal}
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div class="bg-[#101827] border border-slate-800 w-full max-w-md rounded-2xl p-6 space-y-5 shadow-2xl">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Database class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="font-bold text-base text-white">Database Quick Access</h3>
+              <p class="text-xs text-slate-400">MariaDB / MySQL Local Connection</p>
+            </div>
+          </div>
+          <button
+            onclick={() => (showDatabaseModal = false)}
+            class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <div class="space-y-2.5 text-xs bg-slate-950/60 rounded-xl p-4 border border-slate-800/80">
+          <div class="flex justify-between items-center py-1 border-b border-slate-800/50">
+            <span class="text-slate-400">Host</span>
+            <span class="font-mono text-cyan-400 font-semibold">127.0.0.1 (localhost)</span>
+          </div>
+          <div class="flex justify-between items-center py-1 border-b border-slate-800/50">
+            <span class="text-slate-400">Port</span>
+            <span class="font-mono text-emerald-400 font-semibold">3306</span>
+          </div>
+          <div class="flex justify-between items-center py-1 border-b border-slate-800/50">
+            <span class="text-slate-400">Username</span>
+            <span class="font-mono text-slate-200 font-semibold">root</span>
+          </div>
+          <div class="flex justify-between items-center py-1 border-b border-slate-800/50">
+            <span class="text-slate-400">Password</span>
+            <span class="font-mono text-slate-400 italic">(none / blank)</span>
+          </div>
+          <div class="flex justify-between items-center py-1">
+            <span class="text-slate-400">Driver</span>
+            <span class="font-mono text-amber-400">MySQL / MariaDB</span>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-300 space-y-1">
+          <p class="font-semibold text-white">Tip for HeidiSQL, DBeaver & VS Code:</p>
+          <p>Connect using Host <code class="text-cyan-400 font-mono">127.0.0.1</code>, Port <code class="text-emerald-400 font-mono">3306</code>, and User <code class="text-slate-200 font-mono">root</code> without password.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button
+            onclick={() => {
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText("mysql://root@127.0.0.1:3306");
+                showToast("Connection string copied to clipboard!");
+              }
+            }}
+            class="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+          >
+            Copy URL
+          </button>
+          <button
+            onclick={() => (showDatabaseModal = false)}
+            class="px-4 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-lg shadow-emerald-500/20 transition-all"
+          >
+            Done
           </button>
         </div>
       </div>

@@ -450,3 +450,57 @@ pub async fn check_for_updates() -> Result<UpdateCheckDto, String> {
         signature_verified: true,
     })
 }
+
+#[tauri::command]
+pub async fn open_browser(url: String) -> Result<(), String> {
+    forge_supervisor::NativeShell::open_browser(&url).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn open_projects_folder(path: Option<String>) -> Result<(), String> {
+    let p = path
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("C:\\4forge\\projects"));
+    forge_supervisor::NativeShell::open_folder(&p).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn open_system_terminal(
+    _state: State<'_, AppState>,
+    path: Option<String>,
+) -> Result<(), String> {
+    let workdir = path
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("C:\\4forge\\projects"));
+
+    let mut paths = Vec::new();
+    if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+        let base = std::path::PathBuf::from(appdata)
+            .join("4Forge")
+            .join("runtimes");
+        paths.push(base.join("php"));
+        paths.push(base.join("node"));
+        paths.push(base.join("mariadb").join("bin"));
+        paths.push(base.join("python"));
+    }
+    if let Ok(sys_path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&sys_path) {
+            let s = dir.to_string_lossy().to_lowercase();
+            if s.contains("php")
+                || s.contains("mysql")
+                || s.contains("nodejs")
+                || s.contains("python")
+            {
+                paths.push(dir);
+            }
+        }
+    }
+
+    forge_supervisor::NativeShell::open_terminal(Some(&workdir), &paths).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn open_database_gui() -> Result<bool, String> {
+    forge_supervisor::NativeShell::launch_database_client("127.0.0.1", 3306, "root")
+        .map_err(|e| e.to_string())
+}
