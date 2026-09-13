@@ -120,21 +120,33 @@
     showToast(`Opening ${url} in browser...`);
   }
 
-  async function openDatabaseAction(): Promise<void> {
-    const mariaSvc = services.find((s) => s.id === "mariadb");
-    if (mariaSvc && mariaSvc.status !== "running") {
-      showToast("Starting MariaDB service...");
-      await startService("mariadb");
-      await new Promise((r) => setTimeout(r, 600));
-      await fetchBackendState(false);
+  async function openDatabaseAction(engine?: string): Promise<void> {
+    const eng = (engine || "mariadb").toLowerCase();
+    const svcId = eng === "postgresql" || eng === "postgres" ? "postgresql" : eng === "redis" ? "redis" : eng === "sqlite" ? null : "mariadb";
+    if (svcId) {
+      const svc = services.find((s) => s.id === svcId);
+      if (svc && svc.status !== "running") {
+        showToast(`Starting ${svc.name}...`);
+        await startService(svcId);
+        await new Promise((r) => setTimeout(r, 600));
+        await fetchBackendState(false);
+      }
     }
-    const result = await launchDbManager();
+    const result = await launchDbManager(eng);
     if (result?.launched_type === "native") {
       showToast(`Native database client launched: ${result.client_name}`);
       return;
     }
     if (result?.launched_type === "web_adminer") {
       showToast("Opened built-in Adminer database manager in browser");
+      return;
+    }
+    if (result?.launched_type === "folder") {
+      showToast("Opened SQLite directory in Explorer");
+      return;
+    }
+    if (result?.launched_type === "terminal") {
+      showToast("Opened Redis CLI terminal");
       return;
     }
     showDatabaseModal = true;

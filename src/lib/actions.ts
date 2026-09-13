@@ -38,10 +38,10 @@ export async function openDevTerminal(): Promise<void> {
   }
 }
 
-export async function launchDbManager(): Promise<DatabaseLaunchResult | null> {
+export async function launchDbManager(engine?: string): Promise<DatabaseLaunchResult | null> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    return await invokeTauri<DatabaseLaunchResult>("launch_database_manager");
+    return await invokeTauri<DatabaseLaunchResult>("launch_database_manager", engine ? { engine } : {});
   }
   return null;
 }

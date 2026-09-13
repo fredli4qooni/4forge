@@ -642,6 +642,7 @@ pub async fn auto_register_detected_project(
 #[tauri::command]
 pub async fn launch_database_manager(
     state: State<'_, AppState>,
+    engine: Option<String>,
 ) -> Result<forge_db_manager::DatabaseLaunchResult, String> {
     let tools_dir = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
         std::path::PathBuf::from(appdata)
@@ -649,6 +650,38 @@ pub async fn launch_database_manager(
             .join("tools")
     } else {
         std::path::PathBuf::from("C:\\4forge\\tools")
+    };
+
+    let eng = engine
+        .unwrap_or_else(|| "mariadb".to_string())
+        .to_lowercase();
+    if eng == "redis" {
+        let _ = forge_supervisor::NativeShell::open_terminal(
+            Some(&std::path::PathBuf::from("C:\\4forge\\data")),
+            &[],
+        );
+        return Ok(forge_db_manager::DatabaseLaunchResult {
+            launched_type: "terminal".to_string(),
+            client_name: "Redis CLI Shell".to_string(),
+            url_or_path: "redis-cli (127.0.0.1:6379)".to_string(),
+        });
+    }
+
+    if eng == "sqlite" {
+        let sqlite_dir = std::path::PathBuf::from("C:\\4forge\\data\\sqlite");
+        let _ = std::fs::create_dir_all(&sqlite_dir);
+        let _ = forge_supervisor::NativeShell::open_folder(&sqlite_dir);
+        return Ok(forge_db_manager::DatabaseLaunchResult {
+            launched_type: "folder".to_string(),
+            client_name: "SQLite Data Directory".to_string(),
+            url_or_path: sqlite_dir.to_string_lossy().to_string(),
+        });
+    }
+
+    let (port, user) = if eng == "postgresql" || eng == "postgres" {
+        (5432, "postgres")
+    } else {
+        (3306, "root")
     };
 
     let svcs = state.supervisor.list_services().await;
@@ -662,8 +695,8 @@ pub async fn launch_database_manager(
         &tools_dir,
         web_port,
         "127.0.0.1",
-        3306,
-        "root",
+        port,
+        user,
     )
     .map_err(|e| e.to_string())
 }

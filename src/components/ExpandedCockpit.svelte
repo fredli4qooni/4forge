@@ -86,7 +86,7 @@
     onToggleAll: () => void;
     onToggleService: (id: string) => void;
     onOpenWeb: () => void;
-    onOpenDatabase: () => void;
+    onOpenDatabase: (engine?: string) => void;
     onOpenTerminal: () => void;
     onOpenProjects: () => void;
     onOpenUpdateModal: () => void;

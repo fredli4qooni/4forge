@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    ChevronDown,
     Code,
     Database,
     ExternalLink,
@@ -13,6 +14,7 @@
     Square,
     Terminal,
     Trash2,
+    Zap,
   } from "@lucide/svelte";
   import type { ServiceItem, SiteItem } from "../types";
 
@@ -55,7 +57,7 @@
     onToggleAll: () => void;
     onToggleService: (id: string) => void;
     onOpenWeb: () => void;
-    onOpenDatabase: () => void;
+    onOpenDatabase: (engine?: string) => void;
     onOpenTerminal: () => void;
     onOpenProjects: () => void;
     onRefresh: () => void;
@@ -70,6 +72,11 @@
 
   let quickDbName = $state("");
   let selectedDbEngine = $state("MariaDB");
+  let showDbQuickMenu = $state(false);
+
+  function getServiceStatus(id: string): string {
+    return services.find((s) => s.id === id)?.status || "stopped";
+  }
 
   let formattedUptime = $derived.by(() => {
     if (!uptimeSeconds || runningCount === 0) return "-- : -- : --";
@@ -233,13 +240,105 @@
           <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Web</span>
         </button>
 
-        <button
-          onclick={onOpenDatabase}
-          class="rounded-xl border border-slate-200 bg-white p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 shadow-xs transition-all cursor-pointer group"
-        >
-          <Database class="w-4 h-4 text-slate-600 group-hover:text-[#94380C] transition-colors" />
-          <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Database</span>
-        </button>
+        <div class="relative">
+          <button
+            onclick={() => (showDbQuickMenu = !showDbQuickMenu)}
+            class="w-full rounded-xl border border-slate-200 bg-white p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 shadow-xs transition-all cursor-pointer group {showDbQuickMenu ? 'border-[#94380C]/50 ring-1 ring-[#94380C]/20 bg-slate-50' : ''}"
+          >
+            <Database class="w-4 h-4 text-slate-600 group-hover:text-[#94380C] transition-colors" />
+            <div class="flex items-center gap-0.5">
+              <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Database</span>
+              <ChevronDown class="w-3 h-3 text-slate-400 group-hover:text-slate-600 transition-transform {showDbQuickMenu ? 'rotate-180' : ''}" />
+            </div>
+          </button>
+
+          {#if showDbQuickMenu}
+            <button
+              type="button"
+              tabindex="-1"
+              aria-label="Close menu backdrop"
+              class="fixed inset-0 z-40 bg-transparent border-0 cursor-default p-0 m-0 w-full h-full"
+              onclick={() => (showDbQuickMenu = false)}
+            ></button>
+            <div class="absolute bottom-full mb-2 -left-12 sm:left-0 w-64 bg-white rounded-xl border border-slate-200 shadow-xl p-2 z-50 space-y-1">
+              <div class="px-2 py-1 border-b border-slate-100 flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-slate-900">Select Database</span>
+                <span class="text-[10px] text-slate-400">Quick connect</span>
+              </div>
+              <button
+                onclick={() => { showDbQuickMenu = false; onOpenDatabase("mariadb"); }}
+                class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-md bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60 shrink-0">
+                    <Database class="w-3 h-3" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">MySQL / MariaDB</p>
+                    <p class="text-[10px] text-slate-400 font-mono">:3306 • root</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded {getServiceStatus('mariadb') === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
+                  {getServiceStatus('mariadb') === 'running' ? 'Active' : 'Offline'}
+                </span>
+              </button>
+
+              <button
+                onclick={() => { showDbQuickMenu = false; onOpenDatabase("postgresql"); }}
+                class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-md bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200/60 shrink-0">
+                    <Database class="w-3 h-3" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">PostgreSQL</p>
+                    <p class="text-[10px] text-slate-400 font-mono">:5432 • postgres</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded {getServiceStatus('postgresql') === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
+                  {getServiceStatus('postgresql') === 'running' ? 'Active' : 'Offline'}
+                </span>
+              </button>
+
+              <button
+                onclick={() => { showDbQuickMenu = false; onOpenDatabase("redis"); }}
+                class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-md bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/60 shrink-0">
+                    <Zap class="w-3 h-3" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">Redis Cache</p>
+                    <p class="text-[10px] text-slate-400 font-mono">:6379 • In-Memory</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded {getServiceStatus('redis') === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
+                  {getServiceStatus('redis') === 'running' ? 'Active' : 'Offline'}
+                </span>
+              </button>
+
+              <button
+                onclick={() => { showDbQuickMenu = false; onOpenDatabase("sqlite"); }}
+                class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-md bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200/60 shrink-0">
+                    <FolderOpen class="w-3 h-3" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">SQLite Files</p>
+                    <p class="text-[10px] text-slate-400 font-mono">.sqlite / .db folder</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                  Folder
+                </span>
+              </button>
+            </div>
+          {/if}
+        </div>
 
         <button
           onclick={onOpenTerminal}

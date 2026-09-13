@@ -31,7 +31,7 @@
     stoppedCount: number;
     onToggleAll: () => void;
     onOpenWeb: () => void;
-    onOpenDatabase: () => void;
+    onOpenDatabase: (engine?: string) => void;
     onOpenTerminal: () => void;
     onOpenProjects: () => void;
     onOpenUpdateModal: () => void;
@@ -85,7 +85,7 @@
     </button>
 
     <button
-      onclick={onOpenDatabase}
+      onclick={() => onOpenDatabase()}
       title="Open Database GUI / Management"
       class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 text-xs font-medium transition-all shadow-xs"
     >
