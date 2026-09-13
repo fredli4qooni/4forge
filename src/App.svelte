@@ -318,9 +318,18 @@
 
   async function openSiteBrowser(domain: string): Promise<void> {
     const caddySvc = services.find((s) => s.id === "caddy");
+    const phpSvc = services.find((s) => s.id === "php");
+    let neededStart = false;
     if (caddySvc && caddySvc.status !== "running") {
       showToast("Starting Caddy web server...");
       await startService("caddy");
+      neededStart = true;
+    }
+    if (phpSvc && phpSvc.status !== "running") {
+      await startService("php");
+      neededStart = true;
+    }
+    if (neededStart) {
       await new Promise((r) => setTimeout(r, 600));
       await fetchBackendState(false);
     }

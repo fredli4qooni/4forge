@@ -96,6 +96,39 @@ impl CaddyConfigGenerator {
             }
         })
     }
+
+    pub fn generate_caddyfile(hosts: &[VirtualHostConfig]) -> String {
+        let mut out = String::new();
+        out.push_str("{\n    admin 127.0.0.1:2019\n}\n\n");
+        out.push_str(
+            "http://localhost {\n    respond \"4Forge Local Web Server Running\" 200\n}\n\n",
+        );
+
+        for host in hosts {
+            let normalized_root = host.root_dir.replace('\\', "/");
+            out.push_str(&format!(
+                "http://{}, https://{} {{\n",
+                host.domain, host.domain
+            ));
+            match &host.backend {
+                BackendType::Static => {
+                    out.push_str(&format!("    root * \"{}\"\n", normalized_root));
+                    out.push_str("    file_server\n");
+                }
+                BackendType::PhpFastCgi { fastcgi_addr } => {
+                    out.push_str(&format!("    root * \"{}\"\n", normalized_root));
+                    out.push_str(&format!("    php_fastcgi {}\n", fastcgi_addr));
+                    out.push_str("    file_server\n");
+                }
+                BackendType::ReverseProxy { upstream_addr } => {
+                    out.push_str(&format!("    reverse_proxy {}\n", upstream_addr));
+                }
+            }
+            out.push_str("    tls internal\n");
+            out.push_str("}\n\n");
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -121,5 +154,25 @@ mod tests {
             .as_array()
             .expect("subjects should be array");
         assert_eq!(subjects.len(), 2);
+    }
+
+    #[test]
+    fn test_generate_caddyfile() {
+        let hosts = vec![
+            VirtualHostConfig::new_php(
+                "project.test",
+                "C:\\projects\\project\\public",
+                "127.0.0.1:9000",
+            ),
+            VirtualHostConfig::new_static("static.test", "C:\\projects\\static"),
+        ];
+
+        let caddyfile = CaddyConfigGenerator::generate_caddyfile(&hosts);
+        assert!(caddyfile.contains("admin 127.0.0.1:2019"));
+        assert!(caddyfile.contains("http://project.test, https://project.test {"));
+        assert!(caddyfile.contains("php_fastcgi 127.0.0.1:9000"));
+        assert!(caddyfile.contains("http://static.test, https://static.test {"));
+        assert!(caddyfile.contains("file_server"));
+        assert!(caddyfile.contains("tls internal"));
     }
 }

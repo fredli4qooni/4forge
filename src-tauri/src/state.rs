@@ -167,13 +167,27 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
             }
         })
         .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let caddyfile_path = std::path::PathBuf::from("C:\\4forge\\config\\Caddyfile");
+    if !caddyfile_path.exists() {
+        if let Some(parent) = caddyfile_path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let initial_caddyfile = "{\n    admin 127.0.0.1:2019\n}\n\nhttp://localhost {\n    respond \"4Forge Local Web Server Running\" 200\n}\n";
+        let _ = std::fs::write(&caddyfile_path, initial_caddyfile);
+    }
     let caddy_args = if caddy_bin.ends_with("cmd.exe") {
         vec![
             "/c".to_string(),
             "echo [caddy] Caddy reverse proxy simulated runner active on :80, :443, :2019 & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
         ]
     } else {
-        vec!["run".to_string()]
+        vec![
+            "run".to_string(),
+            "--config".to_string(),
+            caddyfile_path.to_string_lossy().to_string(),
+            "--adapter".to_string(),
+            "caddyfile".to_string(),
+        ]
     };
     list.push(forge_supervisor::ProcessConfig {
         name: "caddy".to_string(),

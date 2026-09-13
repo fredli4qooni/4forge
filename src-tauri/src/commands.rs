@@ -170,8 +170,32 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
     Ok(list)
 }
 
+async fn sync_caddyfile(sites: &[forge_caddy_config::VirtualHostConfig]) {
+    let caddyfile_content = forge_caddy_config::CaddyConfigGenerator::generate_caddyfile(sites);
+    let caddyfile_path = std::path::PathBuf::from("C:\\4forge\\config\\Caddyfile");
+    if let Some(parent) = caddyfile_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let _ = std::fs::write(&caddyfile_path, caddyfile_content);
+}
+
+async fn sync_caddyfile_and_reload(sites: &[forge_caddy_config::VirtualHostConfig]) {
+    sync_caddyfile(sites).await;
+    let caddyfile_path = std::path::PathBuf::from("C:\\4forge\\config\\Caddyfile");
+    let caddy_bin = std::path::PathBuf::from("C:\\4forge\\runtimes\\caddy\\caddy.exe");
+    if caddy_bin.is_file() {
+        let _ = std::process::Command::new(caddy_bin)
+            .args(["reload", "--config", &caddyfile_path.to_string_lossy()])
+            .output();
+    }
+}
+
 #[tauri::command]
 pub async fn start_service(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    if id == "caddy" {
+        let sites = state.sites.read().await;
+        sync_caddyfile(&sites).await;
+    }
     state
         .supervisor
         .start_service(&id)
@@ -200,6 +224,8 @@ pub async fn restart_service(state: State<'_, AppState>, id: String) -> Result<(
 #[tauri::command]
 pub async fn toggle_all_services(state: State<'_, AppState>, start: bool) -> Result<(), String> {
     if start {
+        let sites = state.sites.read().await;
+        sync_caddyfile(&sites).await;
         let _ = state.supervisor.start_service("caddy").await;
         let _ = state.supervisor.start_service("mariadb").await;
         let _ = state.supervisor.start_service("php").await;
@@ -313,6 +339,7 @@ pub async fn add_site(
 
     let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
     let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+    sync_caddyfile_and_reload(&sites).await;
 
     Ok(())
 }
@@ -324,6 +351,7 @@ pub async fn delete_site(state: State<'_, AppState>, domain: String) -> Result<(
 
     let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
     let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+    sync_caddyfile_and_reload(&sites).await;
 
     Ok(())
 }
@@ -643,6 +671,7 @@ pub async fn auto_register_detected_project(
 
     let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
     let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+    sync_caddyfile_and_reload(&sites).await;
 
     Ok(dto)
 }
