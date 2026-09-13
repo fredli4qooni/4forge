@@ -124,11 +124,11 @@
         {#each services as svc}
           <div class="p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-slate-200/80 shrink-0 p-1.5 shadow-xs">
+              <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center border border-slate-200/80 shrink-0 p-1.5 shadow-xs">
                 {#if svc.logo}
-                  <img src={svc.logo} alt={svc.name} class="w-5 h-5 object-contain" />
+                  <img src={svc.logo} alt={svc.name} class="w-6 h-6 object-contain" />
                 {:else if svc.icon}
-                  <svc.icon class="w-4 h-4 text-slate-600" />
+                  <svc.icon class="w-4.5 h-4.5 text-slate-600" />
                 {/if}
               </div>
               <div>
@@ -236,8 +236,8 @@
                 class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
               >
                 <div class="flex items-center gap-2.5">
-                  <div class="w-6 h-6 rounded-md bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
-                    {#if getServiceLogo('mariadb')}<img src={getServiceLogo('mariadb')} alt="MariaDB" class="w-4 h-4 object-contain" />{:else}<Database class="w-3 h-3 text-amber-700" />{/if}
+                  <div class="w-7 h-7 rounded-lg bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
+                    {#if getServiceLogo('mariadb')}<img src={getServiceLogo('mariadb')} alt="MariaDB" class="w-5 h-5 object-contain" />{:else}<Database class="w-3.5 h-3.5 text-amber-700" />{/if}
                   </div>
                   <div>
                     <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">MySQL / MariaDB</p>
@@ -254,8 +254,8 @@
                 class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
               >
                 <div class="flex items-center gap-2.5">
-                  <div class="w-6 h-6 rounded-md bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
-                    {#if getServiceLogo('postgresql')}<img src={getServiceLogo('postgresql')} alt="PostgreSQL" class="w-4 h-4 object-contain" />{:else}<Database class="w-3 h-3 text-blue-700" />{/if}
+                  <div class="w-7 h-7 rounded-lg bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
+                    {#if getServiceLogo('postgresql')}<img src={getServiceLogo('postgresql')} alt="PostgreSQL" class="w-5 h-5 object-contain" />{:else}<Database class="w-3.5 h-3.5 text-blue-700" />{/if}
                   </div>
                   <div>
                     <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">PostgreSQL</p>
@@ -272,8 +272,8 @@
                 class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
               >
                 <div class="flex items-center gap-2.5">
-                  <div class="w-6 h-6 rounded-md bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
-                    {#if getServiceLogo('mongodb')}<img src={getServiceLogo('mongodb')} alt="MongoDB" class="w-4 h-4 object-contain" />{:else}<Database class="w-3 h-3 text-emerald-700" />{/if}
+                  <div class="w-7 h-7 rounded-lg bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
+                    {#if getServiceLogo('mongodb')}<img src={getServiceLogo('mongodb')} alt="MongoDB" class="w-5 h-5 object-contain" />{:else}<Database class="w-3.5 h-3.5 text-emerald-700" />{/if}
                   </div>
                   <div>
                     <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">MongoDB</p>
@@ -290,8 +290,8 @@
                 class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
               >
                 <div class="flex items-center gap-2.5">
-                  <div class="w-6 h-6 rounded-md bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
-                    {#if getServiceLogo('redis')}<img src={getServiceLogo('redis')} alt="Redis" class="w-4 h-4 object-contain" />{:else}<Zap class="w-3 h-3 text-rose-700" />{/if}
+                  <div class="w-7 h-7 rounded-lg bg-white flex items-center justify-center border border-slate-200 shrink-0 p-1 shadow-xs">
+                    {#if getServiceLogo('redis')}<img src={getServiceLogo('redis')} alt="Redis" class="w-5 h-5 object-contain" />{:else}<Zap class="w-3.5 h-3.5 text-rose-700" />{/if}
                   </div>
                   <div>
                     <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">Redis Cache</p>
