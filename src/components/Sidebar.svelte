@@ -23,7 +23,7 @@
 
 <aside class="w-64 border-r border-slate-200 bg-slate-50/75 flex flex-col shrink-0">
   <div class="h-16 px-6 flex items-center gap-3 border-b border-slate-200 bg-white">
-    <div class="h-8 w-8 rounded-lg bg-slate-900 flex items-center justify-center shadow-xs">
+    <div class="h-8 w-8 rounded-lg bg-[#94380C] flex items-center justify-center shadow-xs">
       <Server class="w-4 h-4 text-white" />
     </div>
     <div>

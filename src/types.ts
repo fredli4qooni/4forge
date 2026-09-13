@@ -67,3 +67,4 @@ export type TabType = "dashboard" | "services" | "sites" | "runtimes" | "logs";
 
 export type ViewMode = "compact" | "expanded";
 
+export type DatabaseEngine = "mariadb" | "mysql" | "postgresql" | "sqlite";

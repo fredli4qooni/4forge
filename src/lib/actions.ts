@@ -176,10 +176,10 @@ export async function autoRegisterProject(project: DetectedProject): Promise<voi
   await invokeTauri("auto_register_detected_project", { project });
 }
 
-export async function createDb(dbName: string): Promise<boolean> {
+export async function createDb(dbName: string, engine?: string): Promise<boolean> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    const res = await invokeTauri<boolean>("create_database", { dbName });
+    const res = await invokeTauri<boolean>("create_database", { dbName, engine: engine || "mariadb" });
     return Boolean(res);
   }
   return true;

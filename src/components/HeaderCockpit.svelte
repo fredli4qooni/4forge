@@ -55,8 +55,8 @@
         : allRunning
         ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
         : runningCount > 0
-        ? 'bg-slate-900 text-white hover:bg-slate-800'
-        : 'bg-slate-900 text-white hover:bg-slate-800'}"
+        ? 'bg-[#94380C] text-white hover:bg-[#7C2D12]'
+        : 'bg-[#94380C] text-white hover:bg-[#7C2D12]'}"
     >
       {#if isLoading}
         <RefreshCw class="w-3.5 h-3.5 animate-spin text-slate-400" />

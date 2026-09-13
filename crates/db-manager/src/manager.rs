@@ -121,7 +121,7 @@ impl DatabaseManager {
         list
     }
 
-    pub async fn create_database(&self, db_name: &str) -> Result<(), String> {
+    pub async fn create_database(&self, engine: &str, db_name: &str) -> Result<(), String> {
         let clean = db_name.trim();
         if clean.is_empty() {
             return Err("Database name cannot be empty".to_string());
@@ -133,59 +133,139 @@ impl DatabaseManager {
             );
         }
 
-        if let Some(driver) = self.drivers.get(&DatabaseEngine::MariaDb) {
-            let port = driver.port().unwrap_or(3306);
-            let is_running = Self::check_port_health(port, 400).await;
-            if !is_running {
-                return Err(format!(
-                    "MariaDB is not running on port {port}. Please start MariaDB service first."
-                ));
-            }
-
-            let base = driver
-                .data_dir()
-                .parent()
-                .map(|p| p.to_path_buf())
-                .unwrap_or_else(|| driver.data_dir().to_path_buf());
-            let candidates = vec![
-                base.join("bin").join("mysqladmin.exe"),
-                base.join("bin").join("mariadb-admin.exe"),
-                std::path::PathBuf::from("mysqladmin.exe"),
-                std::path::PathBuf::from("mariadb-admin.exe"),
-            ];
-
-            for candidate in candidates {
-                if candidate.exists() {
-                    let output = tokio::process::Command::new(&candidate)
-                        .args([
-                            "-u",
-                            "root",
-                            &format!("--port={port}"),
-                            "-h",
-                            "127.0.0.1",
-                            "create",
-                            clean,
-                        ])
-                        .output()
-                        .await;
-
-                    if let Ok(out) = output {
-                        if out.status.success() {
-                            return Ok(());
-                        }
-                        let err_msg = String::from_utf8_lossy(&out.stderr);
-                        if err_msg.contains("database exists") || err_msg.contains("already exists")
-                        {
-                            return Ok(());
-                        }
-                        return Err(format!("Failed to create database: {err_msg}"));
+        let engine_lower = engine.to_lowercase();
+        match engine_lower.as_str() {
+            "mariadb" | "mysql" => {
+                if let Some(driver) = self.drivers.get(&DatabaseEngine::MariaDb) {
+                    let port = driver.port().unwrap_or(3306);
+                    let is_running = Self::check_port_health(port, 400).await;
+                    if !is_running {
+                        return Err(format!(
+                            "MariaDB is not running on port {port}. Please start MariaDB service first."
+                        ));
                     }
+
+                    let base = driver
+                        .data_dir()
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| driver.data_dir().to_path_buf());
+                    let candidates = vec![
+                        base.join("bin").join("mysqladmin.exe"),
+                        base.join("bin").join("mariadb-admin.exe"),
+                        std::path::PathBuf::from("mysqladmin.exe"),
+                        std::path::PathBuf::from("mariadb-admin.exe"),
+                    ];
+
+                    for candidate in candidates {
+                        if candidate.exists() {
+                            let output = tokio::process::Command::new(&candidate)
+                                .args([
+                                    "-u",
+                                    "root",
+                                    &format!("--port={port}"),
+                                    "-h",
+                                    "127.0.0.1",
+                                    "create",
+                                    clean,
+                                ])
+                                .output()
+                                .await;
+
+                            if let Ok(out) = output {
+                                if out.status.success() {
+                                    return Ok(());
+                                }
+                                let err_msg = String::from_utf8_lossy(&out.stderr);
+                                if err_msg.contains("database exists")
+                                    || err_msg.contains("already exists")
+                                {
+                                    return Ok(());
+                                }
+                                return Err(format!("Failed to create database: {err_msg}"));
+                            }
+                        }
+                    }
+
+                    Ok(())
+                } else {
+                    Err("MariaDB driver is not registered".to_string())
                 }
             }
+            "postgresql" | "postgres" => {
+                if let Some(driver) = self.drivers.get(&DatabaseEngine::PostgreSql) {
+                    let port = driver.port().unwrap_or(5432);
+                    let is_running = Self::check_port_health(port, 400).await;
+                    if !is_running {
+                        return Err(format!(
+                            "PostgreSQL is not running on port {port}. Please start PostgreSQL service first."
+                        ));
+                    }
 
-            Ok(())
-        } else {
-            Err("MariaDB driver is not registered".to_string())
+                    let base = driver
+                        .data_dir()
+                        .parent()
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| driver.data_dir().to_path_buf());
+                    let candidates = vec![
+                        base.join("bin").join("createdb.exe"),
+                        std::path::PathBuf::from("createdb.exe"),
+                    ];
+
+                    for candidate in candidates {
+                        if candidate.exists() {
+                            let output = tokio::process::Command::new(&candidate)
+                                .args([
+                                    "-h",
+                                    "127.0.0.1",
+                                    "-p",
+                                    &port.to_string(),
+                                    "-U",
+                                    "postgres",
+                                    clean,
+                                ])
+                                .output()
+                                .await;
+
+                            if let Ok(out) = output {
+                                if out.status.success() {
+                                    return Ok(());
+                                }
+                                let err_msg = String::from_utf8_lossy(&out.stderr);
+                                if err_msg.contains("already exists") {
+                                    return Ok(());
+                                }
+                                return Err(format!(
+                                    "Failed to create PostgreSQL database: {err_msg}"
+                                ));
+                            }
+                        }
+                    }
+
+                    Ok(())
+                } else {
+                    Err("PostgreSQL driver is not registered".to_string())
+                }
+            }
+            "sqlite" | "sqlite3" => {
+                let sqlite_dir = self
+                    .drivers
+                    .get(&DatabaseEngine::Sqlite)
+                    .map(|d| d.data_dir().to_path_buf())
+                    .unwrap_or_else(|| std::path::PathBuf::from("C:\\4forge\\data\\sqlite"));
+
+                if let Err(e) = std::fs::create_dir_all(&sqlite_dir) {
+                    return Err(format!("Failed to create SQLite directory: {e}"));
+                }
+                let db_file = sqlite_dir.join(format!("{clean}.sqlite"));
+                if !db_file.exists() {
+                    if let Err(e) = std::fs::File::create(&db_file) {
+                        return Err(format!("Failed to create SQLite database file: {e}"));
+                    }
+                }
+                Ok(())
+            }
+            _ => Err(format!("Unsupported database engine: '{engine}'")),
         }
     }
 }
@@ -221,15 +301,21 @@ mod tests {
     async fn test_database_manager_create_database_validation() {
         let manager = DatabaseManager::new();
 
-        let res_empty = manager.create_database("").await;
+        let res_empty = manager.create_database("mariadb", "").await;
         assert!(res_empty.is_err());
         assert!(res_empty.unwrap_err().contains("empty"));
 
-        let res_invalid = manager.create_database("db; DROP TABLE users;").await;
+        let res_invalid = manager
+            .create_database("mariadb", "db; DROP TABLE users;")
+            .await;
         assert!(res_invalid.is_err());
         assert!(res_invalid.unwrap_err().contains("alphanumeric"));
 
-        let res_unregistered = manager.create_database("valid_db").await;
+        let res_unsupported = manager.create_database("oracle", "my_db").await;
+        assert!(res_unsupported.is_err());
+        assert!(res_unsupported.unwrap_err().contains("Unsupported"));
+
+        let res_unregistered = manager.create_database("mariadb", "valid_db").await;
         assert!(res_unregistered.is_err());
         assert!(res_unregistered.unwrap_err().contains("not registered"));
     }

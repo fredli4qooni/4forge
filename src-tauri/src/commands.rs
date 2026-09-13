@@ -690,10 +690,17 @@ pub async fn sync_windows_hosts(
 }
 
 #[tauri::command]
-pub async fn create_database(state: State<'_, AppState>, db_name: String) -> Result<bool, String> {
-    let _ = state.supervisor.start_service("mariadb").await;
+pub async fn create_database(
+    state: State<'_, AppState>,
+    engine: Option<String>,
+    db_name: String,
+) -> Result<bool, String> {
+    let eng = engine.unwrap_or_else(|| "mariadb".to_string());
+    if eng == "mariadb" || eng == "mysql" {
+        let _ = state.supervisor.start_service("mariadb").await;
+    }
     let db_lock = state.db_manager.read().await;
-    db_lock.create_database(&db_name).await.map(|_| true)
+    db_lock.create_database(&eng, &db_name).await.map(|_| true)
 }
 
 #[tauri::command]
@@ -704,9 +711,9 @@ pub async fn open_project_terminal(state: State<'_, AppState>, path: String) -> 
 #[tauri::command]
 pub async fn set_window_compact_mode(window: tauri::Window, compact: bool) -> Result<(), String> {
     if compact {
-        let _ = window.set_size(tauri::LogicalSize::new(560.0, 440.0));
+        let _ = window.set_size(tauri::LogicalSize::new(580.0, 780.0));
     } else {
-        let _ = window.set_size(tauri::LogicalSize::new(1060.0, 720.0));
+        let _ = window.set_size(tauri::LogicalSize::new(1080.0, 740.0));
     }
     Ok(())
 }

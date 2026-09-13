@@ -41,16 +41,9 @@
     openProjectTerminal,
     setWindowCompactMode,
   } from "./lib/actions";
-  import Sidebar from "./components/Sidebar.svelte";
-  import HeaderCockpit from "./components/HeaderCockpit.svelte";
   import CompactCockpit from "./components/CompactCockpit.svelte";
-  import PortConflictBanner from "./components/PortConflictBanner.svelte";
+  import ExpandedCockpit from "./components/ExpandedCockpit.svelte";
   import Toast from "./components/Toast.svelte";
-  import DashboardTab from "./components/tabs/DashboardTab.svelte";
-  import ServicesTab from "./components/tabs/ServicesTab.svelte";
-  import SitesTab from "./components/tabs/SitesTab.svelte";
-  import RuntimesTab from "./components/tabs/RuntimesTab.svelte";
-  import LogsTab from "./components/tabs/LogsTab.svelte";
   import AddSiteModal from "./components/modals/AddSiteModal.svelte";
   import DatabaseModal from "./components/modals/DatabaseModal.svelte";
   import UpdateModal from "./components/modals/UpdateModal.svelte";
@@ -60,6 +53,7 @@
   let allRunning = $state(false);
   let isLoading = $state(false);
   let toastMessage = $state<string | null>(null);
+  let uptimeSeconds = $state(0);
 
   let portConflicts = $state<PortCheckResult[]>([]);
   let dismissedConflictBanner = $state(false);
@@ -179,9 +173,9 @@
     }
   }
 
-  async function handleCreateDatabase(dbName: string): Promise<void> {
+  async function handleCreateDatabase(dbName: string, engine?: string): Promise<void> {
     try {
-      await createDb(dbName);
+      await createDb(dbName, engine);
       showToast(`Database '${dbName}' created successfully!`);
     } catch (err: any) {
       showToast(`Failed to create database: ${err}`);
@@ -231,8 +225,15 @@
 
   onMount(() => {
     fetchBackendState(true);
-    const timer = setInterval(() => fetchBackendState(false), 2500);
-    return () => clearInterval(timer);
+    const backendTimer = setInterval(() => fetchBackendState(false), 2500);
+    const uptimeTimer = setInterval(() => {
+      if (runningCount > 0) uptimeSeconds += 1;
+      else uptimeSeconds = 0;
+    }, 1000);
+    return () => {
+      clearInterval(backendTimer);
+      clearInterval(uptimeTimer);
+    };
   });
 
   async function fetchBackendState(checkPorts: boolean = false): Promise<void> {
@@ -244,16 +245,12 @@
       });
       allRunning = services.length > 0 && services.every((s) => s.status === "running");
     }
-
     const backendSites = await fetchSites();
     if (backendSites) sites = backendSites;
-
     const missing = await fetchMissingHosts();
     if (missing) missingHosts = missing;
-
     const backendLogs = await fetchLogs(100);
     if (backendLogs && backendLogs.length > 0) logs = backendLogs;
-
     if (checkPorts) {
       const portChecks = await fetchPortConflicts();
       if (portChecks) portConflicts = portChecks.filter((p) => !p.is_available);
@@ -379,8 +376,10 @@
     {allRunning}
     {runningCount}
     {stoppedCount}
+    {uptimeSeconds}
     {isScanningWorkspace}
     onToggleAll={toggleAll}
+    onToggleService={toggleService}
     onOpenWeb={openWebLocalhost}
     onOpenDatabase={openDatabaseAction}
     onOpenTerminal={handleLaunchTerminal}
@@ -395,102 +394,54 @@
     onCreateDatabase={handleCreateDatabase}
   />
 {:else}
-  <div class="flex h-screen w-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
-    <Sidebar {activeTab} onSelectTab={(t) => (activeTab = t)} onOpenUpdateModal={() => (showUpdateModal = true)} />
-
-    <div class="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
-      <HeaderCockpit
-        {isLoading}
-        {allRunning}
-        {runningCount}
-        {stoppedCount}
-        onToggleAll={toggleAll}
-        onOpenWeb={openWebLocalhost}
-        onOpenDatabase={openDatabaseAction}
-        onOpenTerminal={handleLaunchTerminal}
-        onOpenProjects={handleOpenFolder}
-        onOpenUpdateModal={() => (showUpdateModal = true)}
-        onRefresh={() => fetchBackendState(true)}
-        onSwitchToCompact={toggleViewMode}
-      />
-
-      <main class="flex-1 overflow-y-auto p-8 space-y-6">
-        <PortConflictBanner
-          conflicts={portConflicts}
-          dismissed={dismissedConflictBanner}
-          onApplyAlternative={applyAlternativePort}
-          onDismiss={() => (dismissedConflictBanner = true)}
-        />
-
-        {#if activeTab === "dashboard"}
-          <DashboardTab
-            {services}
-            {sites}
-            {portConflicts}
-            {activePhpVersion}
-            {activeNodeVersion}
-            {isScanningWorkspace}
-            onNavigateServices={() => (activeTab = "services")}
-            onToggleService={toggleService}
-            onOpenWeb={openWebLocalhost}
-            onOpenDatabase={openDatabaseAction}
-            onOpenConfig={openServiceConfig}
-            onOpenLogs={openServiceLogs}
-            onSelectPhpVersion={(v) => switchRuntime("php", v)}
-            onSelectNodeVersion={(v) => switchRuntime("node", v)}
-            onScanWorkspace={scanWorkspaceProjects}
-            onOpenAddSite={() => (showAddSiteModal = true)}
-            onOpenSiteBrowser={openSiteBrowser}
-            onOpenSiteFolder={handleOpenFolder}
-            onOpenProjectTerminal={handleOpenProjectTerminal}
-            onOpenProjectInVsCode={handleOpenVsCode}
-            onDeleteSite={handleDeleteSite}
-          />
-        {:else if activeTab === "services"}
-          <ServicesTab
-            {services}
-            {activePhpVersion}
-            {activeNodeVersion}
-            onToggleService={toggleService}
-            onOpenWeb={openWebLocalhost}
-            onOpenDatabase={openDatabaseAction}
-            onOpenConfig={openServiceConfig}
-            onOpenLogs={openServiceLogs}
-            onSelectPhpVersion={(v) => switchRuntime("php", v)}
-            onSelectNodeVersion={(v) => switchRuntime("node", v)}
-          />
-        {:else if activeTab === "sites"}
-          <SitesTab
-            {sites}
-            {missingHosts}
-            {isScanningWorkspace}
-            {isSyncingHosts}
-            onScanWorkspace={scanWorkspaceProjects}
-            onOpenAddSite={() => (showAddSiteModal = true)}
-            onSyncHosts={syncHostsNow}
-            onOpenSiteBrowser={openSiteBrowser}
-            onOpenSiteFolder={handleOpenFolder}
-            onOpenProjectTerminal={handleOpenProjectTerminal}
-            onOpenProjectInVsCode={handleOpenVsCode}
-            onDeleteSite={handleDeleteSite}
-          />
-        {:else if activeTab === "runtimes"}
-          <RuntimesTab
-            {activePhpVersion}
-            {activeNodeVersion}
-            {activePythonVersion}
-            {activeRubyVersion}
-            onSelectPhpVersion={(v) => switchRuntime("php", v)}
-            onSelectNodeVersion={(v) => switchRuntime("node", v)}
-            onSelectPythonVersion={(v) => switchRuntime("python", v)}
-            onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
-          />
-        {:else if activeTab === "logs"}
-          <LogsTab {logs} bind:logFilter bind:logSearch onClearLogs={() => (logs = [])} />
-        {/if}
-      </main>
-    </div>
-  </div>
+  <ExpandedCockpit
+    bind:activeTab
+    {isLoading}
+    {allRunning}
+    {runningCount}
+    {stoppedCount}
+    {services}
+    {sites}
+    bind:logs
+    {portConflicts}
+    bind:dismissedConflictBanner
+    {activePhpVersion}
+    {activeNodeVersion}
+    {activePythonVersion}
+    {activeRubyVersion}
+    {isScanningWorkspace}
+    {missingHosts}
+    {isSyncingHosts}
+    bind:logFilter
+    bind:logSearch
+    onSelectTab={(t) => (activeTab = t)}
+    onToggleAll={toggleAll}
+    onToggleService={toggleService}
+    onOpenWeb={openWebLocalhost}
+    onOpenDatabase={openDatabaseAction}
+    onOpenTerminal={handleLaunchTerminal}
+    onOpenProjects={handleOpenFolder}
+    onOpenUpdateModal={() => (showUpdateModal = true)}
+    onRefresh={() => fetchBackendState(true)}
+    onSwitchToCompact={toggleViewMode}
+    onApplyAlternativePort={applyAlternativePort}
+    onDismissConflict={() => (dismissedConflictBanner = true)}
+    onOpenConfig={openServiceConfig}
+    onOpenLogs={openServiceLogs}
+    onSelectPhpVersion={(v) => switchRuntime("php", v)}
+    onSelectNodeVersion={(v) => switchRuntime("node", v)}
+    onSelectPythonVersion={(v) => switchRuntime("python", v)}
+    onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
+    onScanWorkspace={scanWorkspaceProjects}
+    onOpenAddSite={() => (showAddSiteModal = true)}
+    onSyncHosts={syncHostsNow}
+    onOpenSiteBrowser={openSiteBrowser}
+    onOpenSiteFolder={handleOpenFolder}
+    onOpenProjectTerminal={handleOpenProjectTerminal}
+    onOpenProjectInVsCode={handleOpenVsCode}
+    onDeleteSite={handleDeleteSite}
+    onClearLogs={() => (logs = [])}
+  />
 {/if}
 
 <Toast message={toastMessage} />

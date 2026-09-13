@@ -15,15 +15,16 @@
     onOpenAdminer: () => void;
     onLaunchNative: () => void;
     onCopyUrl: () => void;
-    onCreateDatabase: (name: string) => void;
+    onCreateDatabase: (name: string, engine?: string) => void;
     onCopyEnv?: () => void;
   } = $props();
 
   let newDbName = $state("");
+  let selectedEngine = $state("MariaDB");
 
   function handleCreate() {
     if (newDbName.trim()) {
-      onCreateDatabase(newDbName.trim());
+      onCreateDatabase(newDbName.trim(), selectedEngine.toLowerCase());
       newDbName = "";
     }
   }
@@ -39,7 +40,7 @@
           </div>
           <div>
             <h3 class="font-semibold text-sm text-slate-900">Database Quick Access</h3>
-            <p class="text-xs text-slate-500">MariaDB / MySQL Local Connection</p>
+            <p class="text-xs text-slate-500">MariaDB / MySQL / PostgreSQL / SQLite</p>
           </div>
         </div>
         <button
@@ -62,6 +63,15 @@
             placeholder="e.g. db_ecommerce, blog_db"
             class="flex-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 font-mono focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
           />
+          <select
+            bind:value={selectedEngine}
+            class="px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 bg-white focus:outline-none focus:border-slate-900 cursor-pointer"
+          >
+            <option value="MariaDB">MariaDB</option>
+            <option value="MySQL">MySQL</option>
+            <option value="PostgreSQL">PostgreSQL</option>
+            <option value="SQLite">SQLite</option>
+          </select>
           <button
             type="submit"
             class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors shrink-0"

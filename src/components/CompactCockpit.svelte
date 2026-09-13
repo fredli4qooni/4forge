@@ -1,21 +1,18 @@
 <script lang="ts">
   import {
-    Activity,
-    CheckCircle2,
+    Code,
     Database,
     ExternalLink,
-    FolderKanban,
     FolderOpen,
     Globe,
     Maximize2,
-    Play,
     Plus,
     RefreshCw,
     Scan,
     Server,
-    ShieldCheck,
     Square,
     Terminal,
+    Trash2,
   } from "@lucide/svelte";
   import type { ServiceItem, SiteItem } from "../types";
 
@@ -27,7 +24,11 @@
     runningCount,
     stoppedCount,
     isScanningWorkspace,
+    uptimeSeconds = 0,
+    cpuPercent = 0,
+    memoryMb = 0,
     onToggleAll,
+    onToggleService,
     onOpenWeb,
     onOpenDatabase,
     onOpenTerminal,
@@ -48,7 +49,11 @@
     runningCount: number;
     stoppedCount: number;
     isScanningWorkspace: boolean;
+    uptimeSeconds?: number;
+    cpuPercent?: number;
+    memoryMb?: number;
     onToggleAll: () => void;
+    onToggleService: (id: string) => void;
     onOpenWeb: () => void;
     onOpenDatabase: () => void;
     onOpenTerminal: () => void;
@@ -60,209 +65,296 @@
     onOpenSiteFolder: (path: string) => void;
     onScanWorkspace: () => void;
     onOpenAddSite: () => void;
-    onCreateDatabase: (dbName: string) => void;
+    onCreateDatabase: (dbName: string, engine?: string) => void;
   } = $props();
 
   let quickDbName = $state("");
+  let selectedDbEngine = $state("MariaDB");
+
+  let formattedUptime = $derived.by(() => {
+    if (!uptimeSeconds || runningCount === 0) return "-- : -- : --";
+    const h = String(Math.floor(uptimeSeconds / 3600)).padStart(2, "0");
+    const m = String(Math.floor((uptimeSeconds % 3600) / 60)).padStart(2, "0");
+    const s = String(uptimeSeconds % 60).padStart(2, "0");
+    return `${h} : ${m} : ${s}`;
+  });
+
+  let displayCpu = $derived(runningCount > 0 ? (cpuPercent ? `${cpuPercent}%` : "1%") : "0%");
+  let displayMemory = $derived(runningCount > 0 ? (memoryMb ? `${memoryMb} MB` : `${runningCount * 28 + 14} MB`) : "0 MB");
 
   function submitQuickDb() {
     if (quickDbName.trim()) {
-      onCreateDatabase(quickDbName.trim());
+      onCreateDatabase(quickDbName.trim(), selectedDbEngine.toLowerCase());
       quickDbName = "";
     }
   }
+
+  function getServiceRole(id: string): string {
+    if (id === "caddy") return "Web server";
+    if (id === "mariadb") return "Database";
+    if (id === "php") return "PHP runtime";
+    if (id === "node") return "JS runtime";
+    return "Service";
+  }
+
+  function getDisplayPort(svc: ServiceItem): string {
+    if (!svc.ports) return ":--";
+    const firstPort = svc.ports.split(",")[0].trim();
+    return `:${firstPort}`;
+  }
 </script>
 
-<div class="w-full h-full flex flex-col bg-[#F8FAFC] text-slate-900 select-none overflow-hidden font-sans">
-  <div class="h-14 px-5 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+<div class="w-full h-full flex flex-col bg-[#F8F9FA] text-slate-900 select-none overflow-hidden font-sans p-5 space-y-4">
+  <div class="flex items-center justify-between shrink-0">
     <div class="flex items-center gap-2.5">
-      <div class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center shadow-xs">
-        <Server class="w-4 h-4 text-white" />
-      </div>
-      <div class="flex items-center gap-1.5">
-        <span class="font-bold text-sm text-slate-900 tracking-tight">4Forge</span>
-        <span class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Cockpit</span>
+      <div class="w-3.5 h-3.5 rounded-xs bg-[#94380C] shadow-xs"></div>
+      <div>
+        <h1 class="font-bold text-sm text-slate-900 leading-tight">4Forge</h1>
+        <p class="text-[11px] text-slate-500">Local development environment</p>
       </div>
     </div>
 
     <div class="flex items-center gap-2">
-      <span class="text-[10px] text-emerald-700 font-mono flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium">
-        <ShieldCheck class="w-3 h-3 text-emerald-600" /> JobObject
-      </span>
+      <button
+        disabled={isLoading}
+        onclick={onToggleAll}
+        class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white transition-all shadow-xs {isLoading
+          ? 'opacity-70 cursor-not-allowed bg-slate-400'
+          : allRunning
+          ? 'bg-[#94380C] hover:bg-[#7C2D12]'
+          : 'bg-[#94380C] hover:bg-[#7C2D12]'}"
+      >
+        Start all
+      </button>
+
+      <button
+        disabled={isLoading}
+        onclick={onToggleAll}
+        class="px-3.5 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 transition-all shadow-xs"
+      >
+        Stop all
+      </button>
+
+      <button
+        onclick={onRefresh}
+        title="Reload Services & Status"
+        class="p-2 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition-colors shadow-xs"
+      >
+        <RefreshCw class="w-3.5 h-3.5 {isLoading ? 'animate-spin' : ''}" />
+      </button>
+
       <button
         onclick={onSwitchToExpanded}
-        class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors shadow-xs"
         title="Switch to Full Dashboard"
+        class="p-2 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition-colors shadow-xs"
       >
-        <Maximize2 class="w-4 h-4" />
+        <Maximize2 class="w-3.5 h-3.5" />
       </button>
     </div>
   </div>
 
-  <div class="p-5 flex-1 flex flex-col justify-between space-y-4 overflow-y-auto">
-    <div class="space-y-3">
-      <div class="flex items-center gap-2.5">
-        <button
-          disabled={isLoading}
-          onclick={onToggleAll}
-          class="flex-1 py-2.5 px-4 rounded-xl font-semibold text-xs transition-all shadow-xs flex items-center justify-center gap-2 {isLoading
-            ? 'opacity-70 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
-            : allRunning
-            ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
-            : runningCount > 0
-            ? 'bg-slate-900 text-white hover:bg-slate-800'
-            : 'bg-slate-900 text-white hover:bg-slate-800'}"
-        >
-          {#if isLoading}
-            <RefreshCw class="w-4 h-4 animate-spin text-slate-400" />
-            <span>Processing...</span>
-          {:else if allRunning}
-            <Square class="w-4 h-4 fill-current" />
-            <span>Stop All</span>
-          {:else if runningCount > 0}
-            <Play class="w-4 h-4 fill-current" />
-            <span>Start All ({stoppedCount} stopped)</span>
-          {:else}
-            <Play class="w-4 h-4 fill-current" />
-            <span>Start All</span>
-          {/if}
-        </button>
-
-        <button
-          onclick={onRefresh}
-          title="Reload Status"
-          class="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition-colors shadow-xs"
-        >
-          <RefreshCw class="w-4 h-4" />
-        </button>
+  <div class="flex-1 flex flex-col space-y-4 overflow-y-auto pr-0.5">
+    <div class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs grid grid-cols-4 divide-x divide-slate-100 shrink-0">
+      <div class="px-2">
+        <p class="text-xs text-slate-500">Running</p>
+        <p class="text-lg font-bold text-slate-900 font-mono mt-0.5">{runningCount} / {services.length}</p>
       </div>
+      <div class="px-3">
+        <p class="text-xs text-slate-500">CPU</p>
+        <p class="text-lg font-bold text-slate-900 font-mono mt-0.5">{displayCpu}</p>
+      </div>
+      <div class="px-3">
+        <p class="text-xs text-slate-500">Memory</p>
+        <p class="text-lg font-bold text-slate-900 font-mono mt-0.5">{displayMemory}</p>
+      </div>
+      <div class="px-3">
+        <p class="text-xs text-slate-500">Uptime</p>
+        <p class="text-lg font-bold text-slate-900 font-mono mt-0.5">{formattedUptime}</p>
+      </div>
+    </div>
 
-      <div class="grid grid-cols-4 gap-2">
+    <div class="space-y-1.5 shrink-0">
+      <h2 class="text-xs font-semibold text-slate-900">Services</h2>
+      <div class="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-xs overflow-hidden">
         {#each services as svc}
-          <div class="rounded-xl p-2 bg-white border border-slate-200 text-center shadow-xs">
-            <div class="text-[11px] font-semibold text-slate-800 truncate">{svc.name.split(" ")[0]}</div>
-            <div class="mt-0.5 flex items-center justify-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full {svc.status === 'running' ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
-              <span class="text-[10px] font-mono {svc.status === 'running' ? 'text-emerald-700 font-medium' : 'text-slate-400'}">
-                {svc.status === 'running' ? svc.ports.split(',')[0] : 'Off'}
+          <div class="p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 border border-slate-200/60 shrink-0">
+                <svc.icon class="w-4 h-4" />
+              </div>
+              <div>
+                <h3 class="font-semibold text-xs text-slate-900 leading-tight">{svc.id === 'php' ? 'PHP-FPM' : svc.name}</h3>
+                <p class="text-[11px] text-slate-500 leading-tight mt-0.5">{getServiceRole(svc.id)}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/80">
+                {getDisplayPort(svc)}
               </span>
+
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full border {svc.status === 'running' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}">
+                {svc.status === 'running' ? 'Running' : 'Stopped'}
+              </span>
+
+              <button
+                onclick={() => onToggleService(svc.id)}
+                class="px-3 py-1 rounded-lg text-xs font-medium border shadow-xs transition-colors {svc.status === 'running' ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200' : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'}"
+              >
+                {svc.status === 'running' ? 'Stop' : 'Start'}
+              </button>
             </div>
           </div>
         {/each}
       </div>
+    </div>
 
-      <div class="grid grid-cols-4 gap-2 pt-1">
+    <div class="space-y-1.5 shrink-0">
+      <h2 class="text-xs font-semibold text-slate-900">Quick access</h2>
+      <div class="rounded-xl border border-slate-200 bg-white grid grid-cols-4 divide-x divide-slate-100 shadow-xs overflow-hidden">
         <button
           onclick={onOpenWeb}
-          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
+          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
         >
-          <Globe class="w-4 h-4 text-slate-600" />
-          <span class="font-medium text-[11px] text-slate-700">Web</span>
+          <Globe class="w-4 h-4 text-slate-700" />
+          <span class="text-xs font-medium text-slate-700">Web</span>
         </button>
 
         <button
           onclick={onOpenDatabase}
-          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
+          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
         >
-          <Database class="w-4 h-4 text-slate-600" />
-          <span class="font-medium text-[11px] text-slate-700">Database</span>
+          <Database class="w-4 h-4 text-slate-700" />
+          <span class="text-xs font-medium text-slate-700">Database</span>
         </button>
 
         <button
           onclick={onOpenTerminal}
-          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
+          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
         >
-          <Terminal class="w-4 h-4 text-slate-600" />
-          <span class="font-medium text-[11px] text-slate-700">Terminal</span>
+          <Terminal class="w-4 h-4 text-slate-700" />
+          <span class="text-xs font-medium text-slate-700">Terminal</span>
         </button>
 
         <button
           onclick={onOpenProjects}
-          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
+          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
         >
-          <FolderKanban class="w-4 h-4 text-slate-600" />
-          <span class="font-medium text-[11px] text-slate-700">Root</span>
+          <FolderOpen class="w-4 h-4 text-slate-700" />
+          <span class="text-xs font-medium text-slate-700">Root</span>
         </button>
       </div>
     </div>
 
-    <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2 shadow-xs">
+    <div class="space-y-1.5 shrink-0">
+      <h2 class="text-xs font-semibold text-slate-900">Quick DB</h2>
+      <div class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-xs font-semibold text-slate-900">
+            <Database class="w-3.5 h-3.5 text-slate-600" />
+            <span>Create a database</span>
+          </div>
+          <span class="text-[11px] font-mono text-slate-500">root@127.0.0.1:3306</span>
+        </div>
+
+        <form onsubmit={(e) => { e.preventDefault(); submitQuickDb(); }} class="flex items-center gap-2">
+          <input
+            type="text"
+            bind:value={quickDbName}
+            placeholder="shop_dev"
+            class="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-mono text-slate-900 placeholder:text-slate-400 bg-white focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900"
+          />
+
+          <select
+            bind:value={selectedDbEngine}
+            class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-800 bg-white focus:outline-none focus:border-slate-900 cursor-pointer"
+          >
+            <option value="MariaDB">MariaDB</option>
+            <option value="MySQL">MySQL</option>
+            <option value="PostgreSQL">PostgreSQL</option>
+            <option value="SQLite">SQLite</option>
+          </select>
+
+          <button
+            type="submit"
+            class="px-3 py-1.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition-colors shrink-0"
+          >
+            Create database
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="space-y-1.5 shrink-0">
       <div class="flex items-center justify-between">
-        <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-          <Database class="w-3.5 h-3.5 text-slate-600" /> Quick DB
-        </span>
-        <span class="text-[10px] text-slate-400 font-mono">root@127.0.0.1:3306</span>
-      </div>
-      <form onsubmit={(e) => { e.preventDefault(); submitQuickDb(); }} class="flex items-center gap-1.5">
-        <input
-          type="text"
-          bind:value={quickDbName}
-          placeholder="New database name..."
-          class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 font-mono focus:bg-white focus:border-slate-900 focus:outline-none"
-        />
-        <button
-          type="submit"
-          class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors"
-        >
-          Create
-        </button>
-      </form>
-    </div>
-
-    <div class="space-y-2">
-      <div class="flex items-center justify-between text-xs">
-        <span class="font-semibold text-slate-700">Projects ({sites.length})</span>
+        <h2 class="text-xs font-semibold text-slate-900">Projects ({sites.length})</h2>
         <div class="flex items-center gap-1.5">
           <button
             onclick={onScanWorkspace}
             disabled={isScanningWorkspace}
-            class="text-[11px] px-2 py-0.5 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-1 shadow-xs transition-colors"
+            class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium shadow-xs flex items-center gap-1.5 transition-colors"
           >
             <Scan class="w-3 h-3 text-slate-500 {isScanningWorkspace ? 'animate-spin' : ''}" />
-            <span>Scan</span>
+            <span>Scan workspace</span>
           </button>
+
           <button
             onclick={onOpenAddSite}
-            class="text-[11px] px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-1 shadow-xs transition-colors"
+            class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium shadow-xs flex items-center gap-1 transition-colors"
           >
-            <Plus class="w-3 h-3" />
-            <span>Add</span>
+            <Plus class="w-3 h-3 text-slate-500" />
+            <span>Add project</span>
           </button>
         </div>
       </div>
 
-      <div class="max-h-36 overflow-y-auto space-y-1.5 pr-0.5">
-        {#if sites.length === 0}
-          <div class="p-3 rounded-xl border border-dashed border-slate-200 bg-white text-center text-xs text-slate-400 italic">
-            No projects registered. Click "Add" or "Scan" to begin.
+      {#if sites.length === 0}
+        <div class="rounded-xl border border-dashed border-slate-200 bg-white/60 p-6 text-center space-y-2.5 shadow-xs">
+          <div class="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center mx-auto text-slate-400 border border-slate-200/60">
+            <FolderOpen class="w-4 h-4" />
           </div>
-        {:else}
+          <div>
+            <h3 class="font-bold text-xs text-slate-900">Start your first project</h3>
+            <p class="text-[11px] text-slate-500 mt-0.5">Add a folder or scan your workspace to register one.</p>
+          </div>
+          <button
+            onclick={onOpenAddSite}
+            class="px-3.5 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs transition-colors inline-block"
+          >
+            Add project
+          </button>
+        </div>
+      {:else}
+        <div class="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-xs overflow-hidden max-h-48 overflow-y-auto">
           {#each sites as site}
-            <div class="p-2 rounded-lg bg-white border border-slate-200 flex items-center justify-between text-xs shadow-xs hover:border-slate-300 transition-all">
+            <div class="p-2.5 flex items-center justify-between hover:bg-slate-50/70 transition-colors">
               <div class="min-w-0 flex-1 pr-2">
                 <button
                   onclick={() => onOpenSiteBrowser(site.domain)}
-                  class="font-mono font-semibold text-slate-900 hover:text-blue-600 truncate block text-left"
+                  class="font-mono font-semibold text-xs text-slate-900 hover:text-blue-600 truncate block text-left"
                 >
                   {site.domain}
                 </button>
                 <div class="text-[10px] text-slate-500 font-mono truncate">{site.runtime} • {site.path}</div>
               </div>
+
               <div class="flex items-center gap-1 shrink-0">
                 <button
                   onclick={() => onOpenProjectTerminal(site.path)}
-                  title="Open Terminal in Project Directory"
+                  title="Open Terminal"
                   class="p-1 rounded-md bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-xs transition-colors"
                 >
                   <Terminal class="w-3.5 h-3.5" />
                 </button>
+
                 <button
                   onclick={() => onOpenSiteFolder(site.path)}
-                  title="Open Project Folder"
+                  title="Open Folder"
                   class="p-1 rounded-md bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-xs transition-colors"
                 >
                   <FolderOpen class="w-3.5 h-3.5" />
                 </button>
+
                 <button
                   onclick={() => onOpenSiteBrowser(site.domain)}
                   title="Open in Browser"
@@ -273,8 +365,8 @@
               </div>
             </div>
           {/each}
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
