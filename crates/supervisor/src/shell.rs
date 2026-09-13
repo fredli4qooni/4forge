@@ -153,6 +153,26 @@ impl NativeShell {
             Ok(false)
         }
     }
+    pub fn open_file(path: &Path) -> std::io::Result<()> {
+        if let Some(parent) = path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent)?;
+            }
+        }
+        if !path.exists() {
+            std::fs::write(path, "")?;
+        }
+        #[cfg(windows)]
+        {
+            Command::new("notepad.exe").arg(path).spawn()?;
+            Ok(())
+        }
+        #[cfg(not(windows))]
+        {
+            Command::new("xdg-open").arg(path).spawn()?;
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -164,6 +184,14 @@ mod tests {
         let tmp = std::env::temp_dir().join("4forge_test_shell");
         let res = NativeShell::open_folder(&tmp);
         let _ = std::fs::remove_dir_all(&tmp);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_native_shell_open_file() {
+        let tmp = std::env::temp_dir().join("4forge_test_shell_config.ini");
+        let res = NativeShell::open_file(&tmp);
+        let _ = std::fs::remove_file(&tmp);
         assert!(res.is_ok());
     }
 }

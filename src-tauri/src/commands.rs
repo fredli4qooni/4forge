@@ -504,3 +504,46 @@ pub async fn open_database_gui() -> Result<bool, String> {
     forge_supervisor::NativeShell::launch_database_client("127.0.0.1", 3306, "root")
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub async fn open_service_config(service_id: String) -> Result<String, String> {
+    let base_dir = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+        std::path::PathBuf::from(appdata)
+            .join("4Forge")
+            .join("config")
+    } else {
+        std::path::PathBuf::from("C:\\4forge\\config")
+    };
+    let _ = std::fs::create_dir_all(&base_dir);
+
+    let (file_path, default_content) = match service_id.to_lowercase().as_str() {
+        "caddy" => {
+            let path = base_dir.join("Caddyfile");
+            let content = "{\n    admin 127.0.0.1:2019\n    local_certs\n}\n\nhttp://localhost {\n    respond \"4Forge Local Web Server Running\" 200\n}\n";
+            (path, content)
+        }
+        "php" => {
+            let path = base_dir.join("php.ini");
+            let content = "[PHP]\nmemory_limit = 512M\nupload_max_filesize = 128M\npost_max_size = 128M\nmax_execution_time = 300\ndate.timezone = UTC\ndisplay_errors = On\nerror_reporting = E_ALL\nextension=curl\nextension=fileinfo\nextension=mbstring\nextension=mysqli\nextension=openssl\nextension=pdo_mysql\n";
+            (path, content)
+        }
+        "mariadb" | "mysql" => {
+            let path = base_dir.join("my.ini");
+            let content = "[mysqld]\nport = 3306\nbind-address = 127.0.0.1\nmax_connections = 100\ndefault-storage-engine = INNODB\ncharacter-set-server = utf8mb4\ncollation-server = utf8mb4_unicode_ci\n\n[client]\nport = 3306\ndefault-character-set = utf8mb4\n";
+            (path, content)
+        }
+        "node" => {
+            let path = base_dir.join("node.env");
+            let content = "NODE_ENV=development\nPORT=3000\n";
+            (path, content)
+        }
+        _ => return Err(format!("Unknown service for config: {}", service_id)),
+    };
+
+    if !file_path.exists() {
+        let _ = std::fs::write(&file_path, default_content);
+    }
+
+    forge_supervisor::NativeShell::open_file(&file_path).map_err(|e| e.to_string())?;
+    Ok(file_path.to_string_lossy().to_string())
+}
