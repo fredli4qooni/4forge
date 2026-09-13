@@ -383,6 +383,73 @@ if ($connected && !empty($db)) {
         None
     }
 
+    pub fn find_mongodb_client() -> Option<PathBuf> {
+        let mut candidates = vec![
+            PathBuf::from("MongoDBCompass.exe"),
+            PathBuf::from("mongosh.exe"),
+            PathBuf::from("C:\\Program Files\\MongoDB Compass\\MongoDBCompass.exe"),
+        ];
+
+        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+            candidates.push(
+                PathBuf::from(local_app_data)
+                    .join("Programs")
+                    .join("MongoDB Compass")
+                    .join("MongoDBCompass.exe"),
+            );
+        }
+
+        for c in candidates {
+            if c.is_file() {
+                return Some(c);
+            }
+            if let Some(file_name) = c.file_name() {
+                if let Ok(paths) = std::env::var("PATH") {
+                    for dir in std::env::split_paths(&paths) {
+                        let full = dir.join(file_name);
+                        if full.is_file() {
+                            return Some(full);
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn launch_mongodb_ui(uri: &str) -> std::io::Result<DatabaseLaunchResult> {
+        if let Some(client) = Self::find_mongodb_client() {
+            let name = client
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("MongoDB Client")
+                .to_string();
+
+            let mut cmd = Command::new(&client);
+            cmd.arg(uri);
+            cmd.spawn()?;
+
+            Ok(DatabaseLaunchResult {
+                launched_type: "native".to_string(),
+                client_name: name,
+                url_or_path: client.to_string_lossy().to_string(),
+            })
+        } else {
+            let data_dir = PathBuf::from("C:\\4forge\\data\\mongodb");
+            let _ = std::fs::create_dir_all(&data_dir);
+            #[cfg(windows)]
+            {
+                let _ = Command::new("explorer.exe").arg(&data_dir).spawn();
+            }
+            Ok(DatabaseLaunchResult {
+                launched_type: "folder".to_string(),
+                client_name: "MongoDB Data Directory".to_string(),
+                url_or_path: uri.to_string(),
+            })
+        }
+    }
+
     pub fn launch_database_ui(
         tools_root: &Path,
         web_port: u16,

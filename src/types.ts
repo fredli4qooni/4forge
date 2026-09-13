@@ -67,4 +67,4 @@ export type TabType = "cockpit" | "dashboard" | "services" | "sites" | "runtimes
 
 export type ViewMode = "compact" | "expanded";
 
-export type DatabaseEngine = "mariadb" | "mysql" | "postgresql" | "sqlite";
+export type DatabaseEngine = "mariadb" | "mysql" | "postgresql" | "sqlite" | "mongodb";

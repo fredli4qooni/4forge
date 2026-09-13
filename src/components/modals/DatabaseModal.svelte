@@ -40,7 +40,7 @@
           </div>
           <div>
             <h3 class="font-semibold text-sm text-slate-900">Database Quick Access</h3>
-            <p class="text-xs text-slate-500">MariaDB / MySQL / PostgreSQL / SQLite</p>
+            <p class="text-xs text-slate-500">MariaDB / MySQL / PostgreSQL / MongoDB / SQLite</p>
           </div>
         </div>
         <button
@@ -70,6 +70,7 @@
             <option value="MariaDB">MariaDB</option>
             <option value="MySQL">MySQL</option>
             <option value="PostgreSQL">PostgreSQL</option>
+            <option value="MongoDB">MongoDB</option>
             <option value="SQLite">SQLite</option>
           </select>
           <button

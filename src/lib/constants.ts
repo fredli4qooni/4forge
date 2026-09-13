@@ -56,6 +56,15 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     status: "running",
     icon: Layers,
   },
+  {
+    id: "mongodb",
+    name: "MongoDB Database",
+    type: "NoSQL Document Store",
+    version: "v7.0.14 Community",
+    ports: "27017",
+    status: "stopped",
+    icon: Database,
+  },
 ];
 
 export const INITIAL_SITES: SiteItem[] = [];

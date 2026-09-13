@@ -265,6 +265,18 @@ impl DatabaseManager {
                 }
                 Ok(())
             }
+            "mongodb" | "mongo" => {
+                if let Some(driver) = self.drivers.get(&DatabaseEngine::MongoDb) {
+                    let port = driver.port().unwrap_or(27017);
+                    let is_running = Self::check_port_health(port, 400).await;
+                    if !is_running {
+                        return Err(format!(
+                            "MongoDB is not running on port {port}. Please start MongoDB service first."
+                        ));
+                    }
+                }
+                Ok(())
+            }
             _ => Err(format!("Unsupported database engine: '{engine}'")),
         }
     }
@@ -318,5 +330,20 @@ mod tests {
         let res_unregistered = manager.create_database("mariadb", "valid_db").await;
         assert!(res_unregistered.is_err());
         assert!(res_unregistered.unwrap_err().contains("not registered"));
+    }
+
+    #[tokio::test]
+    async fn test_database_manager_mongodb() {
+        let mut manager = DatabaseManager::new();
+        let base = PathBuf::from("C:\\tools\\mongodb");
+        let data = PathBuf::from("C:\\tools\\mongodb\\data");
+        let driver = Arc::new(crate::mongodb::MongoDbDriver::new(base, data, 27017));
+        manager.register_driver(driver);
+
+        assert!(manager.get_driver(DatabaseEngine::MongoDb).is_some());
+        let instances = manager.list_instances().await;
+        assert_eq!(instances.len(), 1);
+        assert_eq!(instances[0].engine, DatabaseEngine::MongoDb);
+        assert_eq!(instances[0].port, Some(27017));
     }
 }

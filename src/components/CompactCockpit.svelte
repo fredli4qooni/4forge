@@ -1,46 +1,14 @@
 <script lang="ts">
   import {
-    ChevronDown,
-    Database,
-    ExternalLink,
-    FileText,
-    FolderOpen,
-    Globe,
-    Plus,
-    Scan,
-    ScrollText,
-    Sparkles,
-    Terminal,
-    Zap,
+    ChevronDown, Database, ExternalLink, FileText, FolderOpen, Globe, Plus, Scan, ScrollText, Sparkles, Terminal, Zap,
   } from "@lucide/svelte";
   import type { ServiceItem, SiteItem } from "../types";
 
   let {
-    services,
-    sites,
-    isLoading,
-    allRunning,
-    runningCount,
-    stoppedCount,
-    isScanningWorkspace,
-    uptimeSeconds = 0,
-    cpuPercent = 0,
-    memoryMb = 0,
-    onToggleAll,
-    onToggleService,
-    onOpenWeb,
-    onOpenDatabase,
-    onOpenTerminal,
-    onOpenProjects,
-    onOpenConfig,
-    onOpenLogs,
-    onOpenSiteBrowser,
-    onOpenProjectTerminal,
-    onOpenSiteFolder,
-    onScanWorkspace,
-    onOpenAddSite,
-    onOpenCreateProject,
-    onCreateDatabase,
+    services, sites, isLoading, allRunning, runningCount, stoppedCount, isScanningWorkspace,
+    uptimeSeconds = 0, cpuPercent = 0, memoryMb = 0, onToggleAll, onToggleService, onOpenWeb,
+    onOpenDatabase, onOpenTerminal, onOpenProjects, onOpenConfig, onOpenLogs, onOpenSiteBrowser,
+    onOpenProjectTerminal, onOpenSiteFolder, onScanWorkspace, onOpenAddSite, onOpenCreateProject, onCreateDatabase,
   }: {
     services: ServiceItem[];
     sites: SiteItem[];
@@ -99,6 +67,7 @@
     if (svc.id === "caddy") return "Caddy";
     if (svc.id === "mariadb") return "MySQL / MariaDB";
     if (svc.id === "postgresql") return "PostgreSQL";
+    if (svc.id === "mongodb") return "MongoDB";
     if (svc.id === "redis") return "Redis";
     if (svc.id === "php") return "PHP-FPM";
     if (svc.id === "node") return "Node.js";
@@ -109,6 +78,7 @@
     if (id === "caddy") return "Web server";
     if (id === "mariadb") return "MySQL Database";
     if (id === "postgresql") return "PostgreSQL DB";
+    if (id === "mongodb") return "NoSQL Document DB";
     if (id === "redis") return "Cache & Queue";
     if (id === "php") return "PHP runtime";
     if (id === "node") return "JS runtime";
@@ -198,6 +168,7 @@
                   if (svc.id === 'caddy') onOpenWeb();
                   else if (svc.id === 'mariadb') onOpenDatabase('mariadb');
                   else if (svc.id === 'postgresql') onOpenDatabase('postgresql');
+                  else if (svc.id === 'mongodb') onOpenDatabase('mongodb');
                   else if (svc.id === 'redis') onOpenDatabase('redis');
                 }}
                 title={svc.id === 'caddy' ? 'Open in Browser' : svc.id === 'redis' ? 'Open Redis CLI' : 'Open Database Client'}
@@ -290,6 +261,24 @@
               </button>
 
               <button
+                onclick={() => { showDbQuickMenu = false; onOpenDatabase("mongodb"); }}
+                class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-md bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/60 shrink-0">
+                    <Database class="w-3 h-3" />
+                  </div>
+                  <div>
+                    <p class="text-xs font-medium text-slate-800 group-hover:text-slate-900">MongoDB</p>
+                    <p class="text-[10px] text-slate-400 font-mono">:27017 • NoSQL</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded {getServiceStatus('mongodb') === 'running' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">
+                  {getServiceStatus('mongodb') === 'running' ? 'Active' : 'Offline'}
+                </span>
+              </button>
+
+              <button
                 onclick={() => { showDbQuickMenu = false; onOpenDatabase("redis"); }}
                 class="w-full p-2 rounded-lg flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
               >
@@ -372,6 +361,7 @@
             <option value="MariaDB">MariaDB</option>
             <option value="MySQL">MySQL</option>
             <option value="PostgreSQL">PostgreSQL</option>
+            <option value="MongoDB">MongoDB</option>
             <option value="SQLite">SQLite</option>
           </select>
 

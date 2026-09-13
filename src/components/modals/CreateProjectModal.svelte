@@ -37,7 +37,7 @@
   } = $props();
 
   let activeMode = $state<"gui" | "terminal">("gui");
-  let selectedTemplate = $state<"laravel" | "nextjs" | "wordpress">("laravel");
+  let selectedTemplate = $state<"laravel" | "mern" | "nextjs" | "wordpress">("laravel");
   let projectName = $state("my-laravel-app");
   let selectedVersion = $state("11");
   let autoCreateDb = $state(true);
@@ -64,6 +64,8 @@
         return `composer create-project laravel/laravel:^10.0 ${cleanSlug} --no-security-blocking`;
       }
       return `composer create-project laravel/laravel ${cleanSlug} --no-security-blocking`;
+    } else if (selectedTemplate === "mern") {
+      return `npx -y create-mern-app ${cleanSlug}`;
     } else if (selectedTemplate === "nextjs") {
       return `npx create-next-app@latest ${cleanSlug}`;
     }
@@ -124,43 +126,57 @@
       <div class="space-y-4">
         <div>
           <span class="block text-xs font-semibold text-slate-700 mb-1.5">Select Framework Template</span>
-          <div class="grid grid-cols-3 gap-2.5">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               type="button"
-              onclick={() => (selectedTemplate = "laravel")}
-              class="flex flex-col items-start p-3 rounded-xl border text-left transition-all {selectedTemplate === 'laravel'
+              onclick={() => { selectedTemplate = "laravel"; projectName = "my-laravel-app"; selectedVersion = "11"; }}
+              class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all {selectedTemplate === 'laravel'
                 ? 'border-[#94380C] bg-amber-50/50 shadow-xs ring-1 ring-[#94380C]'
                 : 'border-slate-200 bg-white hover:border-slate-300'}"
             >
               <div class="flex items-center justify-between w-full">
                 <span class="font-bold text-xs text-slate-900">Laravel</span>
-                <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-[#94380C]">PHP 8.2+</span>
+                <span class="text-[9px] font-semibold px-1 py-0.5 rounded bg-amber-100 text-[#94380C]">PHP 8.2+</span>
               </div>
-              <p class="text-[11px] text-slate-500 mt-1 leading-snug">The PHP Framework for Web Artisans</p>
+              <p class="text-[10px] text-slate-500 mt-1 leading-snug">PHP Artisan stack</p>
+            </button>
+
+            <button
+              type="button"
+              onclick={() => { selectedTemplate = "mern"; projectName = "my-mern-app"; selectedVersion = "latest"; }}
+              class="flex flex-col items-start p-2.5 rounded-xl border text-left transition-all {selectedTemplate === 'mern'
+                ? 'border-emerald-600 bg-emerald-50/50 shadow-xs ring-1 ring-emerald-600'
+                : 'border-slate-200 bg-white hover:border-slate-300'}"
+            >
+              <div class="flex items-center justify-between w-full">
+                <span class="font-bold text-xs text-slate-900">MERN Stack</span>
+                <span class="text-[9px] font-semibold px-1 py-0.5 rounded bg-emerald-100 text-emerald-800">Node+Mongo</span>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-1 leading-snug">Mongo + Express + React</p>
             </button>
 
             <button
               type="button"
               disabled
-              class="flex flex-col items-start p-3 rounded-xl border border-slate-200/80 bg-slate-50 text-left opacity-60 cursor-not-allowed"
+              class="flex flex-col items-start p-2.5 rounded-xl border border-slate-200/80 bg-slate-50 text-left opacity-60 cursor-not-allowed"
             >
               <div class="flex items-center justify-between w-full">
                 <span class="font-bold text-xs text-slate-700">Next.js</span>
-                <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">Soon</span>
+                <span class="text-[9px] font-semibold px-1 py-0.5 rounded bg-slate-200 text-slate-600">Soon</span>
               </div>
-              <p class="text-[11px] text-slate-400 mt-1 leading-snug">React fullstack framework</p>
+              <p class="text-[10px] text-slate-400 mt-1 leading-snug">React fullstack</p>
             </button>
 
             <button
               type="button"
               disabled
-              class="flex flex-col items-start p-3 rounded-xl border border-slate-200/80 bg-slate-50 text-left opacity-60 cursor-not-allowed"
+              class="flex flex-col items-start p-2.5 rounded-xl border border-slate-200/80 bg-slate-50 text-left opacity-60 cursor-not-allowed"
             >
               <div class="flex items-center justify-between w-full">
                 <span class="font-bold text-xs text-slate-700">WordPress</span>
-                <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">Soon</span>
+                <span class="text-[9px] font-semibold px-1 py-0.5 rounded bg-slate-200 text-slate-600">Soon</span>
               </div>
-              <p class="text-[11px] text-slate-400 mt-1 leading-snug">Bedrock modern CMS stack</p>
+              <p class="text-[10px] text-slate-400 mt-1 leading-snug">Bedrock modern CMS</p>
             </button>
           </div>
         </div>
@@ -201,27 +217,39 @@
           </div>
 
           <div>
-            <span class="block text-xs font-semibold text-slate-700 mb-1">Version</span>
-            <div class="flex items-center gap-2">
-              <button
-                type="button"
-                onclick={() => (selectedVersion = "11")}
-                class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all {selectedVersion === '11'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
-              >
-                Laravel 11.x (Latest)
-              </button>
-              <button
-                type="button"
-                onclick={() => (selectedVersion = "10")}
-                class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all {selectedVersion === '10'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
-              >
-                Laravel 10.x (LTS)
-              </button>
-            </div>
+            <span class="block text-xs font-semibold text-slate-700 mb-1">Preset / Version</span>
+            {#if selectedTemplate === "laravel"}
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  onclick={() => (selectedVersion = "11")}
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all {selectedVersion === '11'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
+                >
+                  Laravel 11.x (Latest)
+                </button>
+                <button
+                  type="button"
+                  onclick={() => (selectedVersion = "10")}
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-all {selectedVersion === '10'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}"
+                >
+                  Laravel 10.x (LTS)
+                </button>
+              </div>
+            {:else}
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  onclick={() => (selectedVersion = "latest")}
+                  class="px-3 py-1.5 rounded-lg text-xs font-medium border bg-slate-900 text-white border-slate-900 shadow-xs"
+                >
+                  Express + React + Mongoose
+                </button>
+              </div>
+            {/if}
           </div>
 
           {#if activeMode === "gui"}
@@ -249,7 +277,7 @@
                     bind:checked={autoCreateDb}
                     class="rounded text-[#94380C] focus:ring-[#94380C] border-slate-300"
                   />
-                  <span>Create database in MariaDB/MySQL: <strong class="font-mono text-slate-900">{calculatedDbName}</strong></span>
+                  <span>Create database in {selectedTemplate === 'mern' ? 'MongoDB' : 'MariaDB/MySQL'}: <strong class="font-mono text-slate-900">{calculatedDbName}</strong></span>
                 </label>
 
                 <label class="flex items-center gap-2 cursor-pointer text-slate-800">
@@ -258,7 +286,7 @@
                     bind:checked={autoRegisterVhost}
                     class="rounded text-[#94380C] focus:ring-[#94380C] border-slate-300"
                   />
-                  <span>Auto-register Caddy Virtual Host & SSL (<strong class="font-mono text-slate-900">/public</strong> root)</span>
+                  <span>Auto-register Caddy Virtual Host & SSL (<strong class="font-mono text-slate-900">{selectedTemplate === 'mern' ? 'Reverse Proxy' : '/public root'}</strong>)</span>
                 </label>
               </div>
             </div>

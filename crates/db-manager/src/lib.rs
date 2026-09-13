@@ -17,6 +17,7 @@ pub mod config;
 pub mod driver;
 pub mod manager;
 pub mod mariadb;
+pub mod mongodb;
 pub mod postgres;
 pub mod sqlite;
 
@@ -25,6 +26,7 @@ pub use config::{MariaDbConfig, PostgreSqlConfig};
 pub use driver::{DatabaseCommand, DatabaseDriver};
 pub use manager::DatabaseManager;
 pub use mariadb::MariaDbDriver;
+pub use mongodb::MongoDbDriver;
 pub use postgres::PostgreSqlDriver;
 pub use sqlite::SqliteDriver;
 
@@ -45,6 +47,7 @@ pub enum DatabaseEngine {
     MariaDb,
     PostgreSql,
     Sqlite,
+    MongoDb,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

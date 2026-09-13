@@ -1,42 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type {
-    DetectedProject,
-    LogMessage,
-    PortCheckResult,
-    ServiceItem,
-    SiteItem,
-    TabType,
-    UpdateCheck,
+    DetectedProject, LogMessage, PortCheckResult, ServiceItem, SiteItem, TabType, UpdateCheck,
   } from "./types";
   import { INITIAL_SERVICES, INITIAL_SITES, INITIAL_LOGS } from "./lib/constants";
   import {
-    checkSystemUpdates,
-    openUrl,
-    openProjectsFolder,
-    openDevTerminal as launchTerminal,
-    launchDbManager,
-    openAdminer,
-    launchNativeClient,
-    openConfig,
-    syncHosts,
-    openVsCode,
-    detectProject,
-    scanWorkspace,
-    fetchServices,
-    fetchSites,
-    fetchMissingHosts,
-    fetchLogs,
-    fetchPortConflicts,
-    startService,
-    stopService,
-    toggleAllServices,
-    addVirtualHost,
-    deleteVirtualHost,
-    updateServicePort,
-    setRuntimeVersion,
-    autoRegisterProject,
-    createDb,
+    checkSystemUpdates, openUrl, openProjectsFolder, openDevTerminal as launchTerminal,
+    launchDbManager, openAdminer, launchNativeClient, openConfig, syncHosts, openVsCode,
+    detectProject, scanWorkspace, fetchServices, fetchSites, fetchMissingHosts, fetchLogs,
+    fetchPortConflicts, startService, stopService, toggleAllServices, addVirtualHost,
+    deleteVirtualHost, updateServicePort, setRuntimeVersion, autoRegisterProject, createDb,
     openProjectTerminal,
   } from "./lib/actions";
   import CompactCockpit from "./components/CompactCockpit.svelte";
@@ -89,7 +62,7 @@
   async function openDatabaseAction(engine?: string): Promise<void> {
     try {
       const eng = (engine || "mariadb").toLowerCase();
-      const svcId = eng === "postgresql" || eng === "postgres" ? "postgresql" : eng === "redis" ? "redis" : eng === "sqlite" ? null : "mariadb";
+      const svcId = eng === "postgresql" || eng === "postgres" ? "postgresql" : eng === "redis" ? "redis" : eng === "mongodb" || eng === "mongo" ? "mongodb" : eng === "sqlite" ? null : "mariadb";
       if (svcId) {
         const svc = services.find((s) => s.id === svcId);
         if (svc && svc.status !== "running") {
@@ -105,7 +78,7 @@
       } else if (result?.launched_type === "web_adminer") {
         showToast("Opened built-in Adminer database manager in browser");
       } else if (result?.launched_type === "folder") {
-        showToast("Opened SQLite directory in Explorer");
+        showToast(eng === "mongodb" || eng === "mongo" ? "Opened MongoDB data directory" : "Opened SQLite directory in Explorer");
       } else if (result?.launched_type === "terminal") {
         showToast("Opened Redis CLI terminal");
       } else {
@@ -183,14 +156,18 @@
     showToast(`Scaffolding ${req.template.toUpperCase()} project '${req.projectName}'...`);
     if (req.createDatabase) {
       try {
-        await createDb(req.databaseName, "mariadb");
-        showToast(`Created database '${req.databaseName}' in MariaDB`);
+        const dbEng = req.template === "mern" ? "mongodb" : "mariadb";
+        await createDb(req.databaseName, dbEng);
+        showToast(`Created database '${req.databaseName}' in ${dbEng === "mongodb" ? "MongoDB" : "MariaDB"}`);
       } catch (e) {}
     }
     if (req.autoVhost) {
       try {
-        const webRoot = `${req.targetPath}\\public`;
-        await addVirtualHost(req.domain, webRoot, "fastcgi", "127.0.0.1:9000");
+        if (req.template === "mern") {
+          await addVirtualHost(req.domain, req.targetPath, "proxy", "127.0.0.1:5000");
+        } else {
+          await addVirtualHost(req.domain, `${req.targetPath}\\public`, "fastcgi", "127.0.0.1:9000");
+        }
       } catch (e) {}
     }
     handleOpenTerminalWithCommand(req.command, "C:\\4forge\\projects");

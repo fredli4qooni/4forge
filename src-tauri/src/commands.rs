@@ -762,6 +762,16 @@ pub async fn launch_database_manager(
         });
     }
 
+    if eng == "mongodb" || eng == "mongo" {
+        let is_healthy = forge_db_manager::DatabaseManager::check_port_health(27017, 400).await;
+        if !is_healthy && !crate::state::is_runtime_installed("mongodb") {
+            return Err("MongoDB binary (mongod.exe) is not installed on this machine. Please install MongoDB or place binaries in C:\\4forge\\runtimes\\mongodb.".to_string());
+        }
+        let mongo_uri = "mongodb://127.0.0.1:27017";
+        return forge_db_manager::AdminerManager::launch_mongodb_ui(mongo_uri)
+            .map_err(|e| e.to_string());
+    }
+
     let (port, user, svc_name, bin_name) = if eng == "postgresql" || eng == "postgres" {
         (5432, "postgres", "postgresql", "postgres.exe")
     } else {
@@ -865,6 +875,8 @@ pub async fn create_database(
     let eng = engine.unwrap_or_else(|| "mariadb".to_string());
     if eng == "mariadb" || eng == "mysql" {
         let _ = state.supervisor.start_service("mariadb").await;
+    } else if eng == "mongodb" || eng == "mongo" {
+        let _ = state.supervisor.start_service("mongodb").await;
     }
     let db_lock = state.db_manager.read().await;
     db_lock.create_database(&eng, &db_name).await.map(|_| true)

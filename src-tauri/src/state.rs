@@ -33,7 +33,14 @@ impl AppState {
         let runtimes_root = dirs_next_or_default();
         let default_services = build_default_services(&runtimes_root);
         let supervisor = Arc::new(SupervisorManager::new_with_services(default_services)?);
-        let db_manager = Arc::new(RwLock::new(DatabaseManager::new()));
+        let mut dm = DatabaseManager::new();
+        let mongo_driver = Arc::new(forge_db_manager::MongoDbDriver::new(
+            runtimes_root.join("mongodb"),
+            PathBuf::from("C:\\4forge\\data\\mongodb"),
+            27017,
+        ));
+        dm.register_driver(mongo_driver);
+        let db_manager = Arc::new(RwLock::new(dm));
         let runtime_manager = Arc::new(RwLock::new(RuntimeManager::new(runtimes_root)));
         let pty_manager = Arc::new(PtySessionManager::new());
 
@@ -186,6 +193,27 @@ pub fn is_runtime_installed(service_name: &str) -> bool {
                 || runtimes_root.join("php").join("php.exe").is_file()
                 || alt_runtimes_root.join("php").join("php-cgi.exe").is_file()
                 || alt_runtimes_root.join("php").join("php.exe").is_file()
+        }
+        "mongodb" | "mongo" => {
+            find_binary_in_path("mongod.exe").is_some()
+                || runtimes_root
+                    .join("mongodb")
+                    .join("bin")
+                    .join("mongod.exe")
+                    .is_file()
+                || alt_runtimes_root
+                    .join("mongodb")
+                    .join("bin")
+                    .join("mongod.exe")
+                    .is_file()
+                || [
+                    "C:\\Program Files\\MongoDB\\Server\\8.0\\bin\\mongod.exe",
+                    "C:\\Program Files\\MongoDB\\Server\\7.0\\bin\\mongod.exe",
+                    "C:\\Program Files\\MongoDB\\Server\\6.0\\bin\\mongod.exe",
+                    "C:\\Program Files\\MongoDB\\Server\\5.0\\bin\\mongod.exe",
+                ]
+                .iter()
+                .any(|p| PathBuf::from(p).is_file())
         }
         _ => true,
     }
@@ -399,6 +427,59 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
         auto_restart: false,
     });
 
+    let mongodb_bin = find_binary_in_path("mongod.exe")
+        .or_else(|| {
+            let p = runtimes_root.join("mongodb").join("bin").join("mongod.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                let alt_p = alt_runtimes_root
+                    .join("mongodb")
+                    .join("bin")
+                    .join("mongod.exe");
+                if alt_p.is_file() {
+                    Some(alt_p)
+                } else {
+                    [
+                        "C:\\Program Files\\MongoDB\\Server\\8.0\\bin\\mongod.exe",
+                        "C:\\Program Files\\MongoDB\\Server\\7.0\\bin\\mongod.exe",
+                        "C:\\Program Files\\MongoDB\\Server\\6.0\\bin\\mongod.exe",
+                        "C:\\Program Files\\MongoDB\\Server\\5.0\\bin\\mongod.exe",
+                    ]
+                    .iter()
+                    .map(PathBuf::from)
+                    .find(|p| p.is_file())
+                }
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let mongodb_args = if mongodb_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [mongodb] MongoDB Community Server ready on port 27017 (bind: 127.0.0.1) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        let data_dir = PathBuf::from("C:\\4forge\\data\\mongodb");
+        let _ = std::fs::create_dir_all(&data_dir);
+        vec![
+            "--dbpath".to_string(),
+            data_dir.to_string_lossy().to_string(),
+            "--port".to_string(),
+            "27017".to_string(),
+            "--bind_ip".to_string(),
+            "127.0.0.1".to_string(),
+        ]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "mongodb".to_string(),
+        program: mongodb_bin,
+        args: mongodb_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(27017),
+        auto_restart: true,
+    });
+
     list
 }
 
@@ -410,7 +491,7 @@ mod tests {
     async fn test_app_state_and_services() {
         let state = AppState::new().expect("failed to init app state");
         let svcs = state.supervisor.list_services().await;
-        assert_eq!(svcs.len(), 6);
+        assert_eq!(svcs.len(), 7);
 
         let res_caddy = state.supervisor.start_service("caddy").await;
         assert!(res_caddy.is_ok(), "caddy start failed: {:?}", res_caddy);
@@ -432,13 +513,19 @@ mod tests {
         assert!(res_php.is_ok(), "php start failed: {:?}", res_php);
         let res_node = state.supervisor.start_service("node").await;
         assert!(res_node.is_ok(), "node start failed: {:?}", res_node);
+        let res_mongodb = state.supervisor.start_service("mongodb").await;
+        assert!(
+            res_mongodb.is_ok(),
+            "mongodb start failed: {:?}",
+            res_mongodb
+        );
 
         let running = state.supervisor.list_services().await;
         let running_count = running
             .iter()
             .filter(|s| s.status == forge_supervisor::ServiceStatus::Running)
             .count();
-        assert_eq!(running_count, 6);
+        assert_eq!(running_count, 7);
 
         state.supervisor.stop_all().await;
     }
