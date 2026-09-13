@@ -16,7 +16,7 @@
   import LogsTab from "./tabs/LogsTab.svelte";
 
   let {
-    activeTab = $bindable("dashboard"),
+    activeTab = $bindable("services"),
     isLoading,
     allRunning,
     runningCount,
@@ -44,7 +44,7 @@
     onOpenProjects,
     onOpenUpdateModal,
     onRefresh,
-    onSwitchToCompact,
+    onOpenSettings,
     onApplyAlternativePort,
     onDismissConflict,
     onOpenConfig,
@@ -91,7 +91,7 @@
     onOpenProjects: () => void;
     onOpenUpdateModal: () => void;
     onRefresh: () => void;
-    onSwitchToCompact: () => void;
+    onOpenSettings: () => void;
     onApplyAlternativePort: (conflict: PortCheckResult) => void;
     onDismissConflict: () => void;
     onOpenConfig: (serviceId: string) => void;
@@ -128,7 +128,7 @@
       onOpenProjects={onOpenProjects}
       onOpenUpdateModal={onOpenUpdateModal}
       onRefresh={onRefresh}
-      onSwitchToCompact={onSwitchToCompact}
+      onOpenSettings={onOpenSettings}
     />
 
     <main class="flex-1 overflow-y-auto p-8 space-y-6">

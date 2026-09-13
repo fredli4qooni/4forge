@@ -3,9 +3,9 @@
     Database,
     FolderKanban,
     Globe,
-    Minimize2,
     Play,
     RefreshCw,
+    Settings,
     Sparkles,
     Square,
     Terminal,
@@ -23,7 +23,7 @@
     onOpenProjects,
     onOpenUpdateModal,
     onRefresh,
-    onSwitchToCompact,
+    onOpenSettings,
   }: {
     isLoading: boolean;
     allRunning: boolean;
@@ -36,7 +36,7 @@
     onOpenProjects: () => void;
     onOpenUpdateModal: () => void;
     onRefresh: () => void;
-    onSwitchToCompact: () => void;
+    onOpenSettings: () => void;
   } = $props();
 </script>
 
@@ -130,11 +130,11 @@
     </button>
 
     <button
-      onclick={onSwitchToCompact}
-      title="Switch to Compact Cockpit (Laragon-style single screen mode)"
+      onclick={onOpenSettings}
+      title="4Forge Preferences & Settings"
       class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors shadow-xs"
     >
-      <Minimize2 class="w-3.5 h-3.5" />
+      <Settings class="w-3.5 h-3.5" />
     </button>
   </div>
 </header>

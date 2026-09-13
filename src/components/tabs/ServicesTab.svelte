@@ -1,10 +1,11 @@
 <script lang="ts">
   import {
     Database,
-    ExternalLink,
     FileText,
+    Globe,
     Power,
     ScrollText,
+    Terminal,
   } from "@lucide/svelte";
   import type { ServiceItem } from "../../types";
 
@@ -25,7 +26,7 @@
     activeNodeVersion: string;
     onToggleService: (id: string) => void;
     onOpenWeb: () => void;
-    onOpenDatabase: () => void;
+    onOpenDatabase: (engine?: string) => void;
     onOpenConfig: (id: string) => void;
     onOpenLogs: (id: string) => void;
     onSelectPhpVersion: (v: string) => void;
@@ -120,51 +121,53 @@
         </div>
 
         <div class="mt-5 pt-3.5 border-t border-slate-100 space-y-2">
-          <div class="flex items-center gap-2">
-            <button
-              onclick={() => onToggleService(service.id)}
-              class="flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 shadow-xs {service.status === 'running'
-                ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
-                : 'bg-slate-900 text-white hover:bg-slate-800'}"
-            >
-              <Power class="w-3.5 h-3.5" />
-              <span>{service.status === "running" ? "Stop Service" : "Start Service"}</span>
-            </button>
-            {#if service.id === "caddy"}
-              <button
-                onclick={onOpenWeb}
-                title="Open in Browser"
-                class="p-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition-all"
-              >
-                <ExternalLink class="w-3.5 h-3.5" />
-              </button>
-            {:else if service.id === "mariadb"}
-              <button
-                onclick={onOpenDatabase}
-                title="Open Database GUI"
-                class="p-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs transition-all"
-              >
-                <Database class="w-3.5 h-3.5" />
-              </button>
-            {/if}
-          </div>
+          <button
+            onclick={() => onToggleService(service.id)}
+            class="w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-xs {service.status === 'running'
+              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+              : 'bg-slate-900 text-white hover:bg-slate-800'}"
+          >
+            <Power class="w-3.5 h-3.5" />
+            <span>{service.status === "running" ? "Stop Service" : "Start Service"}</span>
+          </button>
 
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-3 gap-1.5">
             <button
               onclick={() => onOpenConfig(service.id)}
               title="Edit Configuration in Notepad"
-              class="w-full py-1.5 px-2.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs flex items-center justify-center gap-1.5 transition-all"
+              class="py-1.5 px-2 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs flex items-center justify-center gap-1 transition-all"
             >
               <FileText class="w-3 h-3 text-slate-500" />
-              <span>Edit Config</span>
+              <span>Config</span>
             </button>
             <button
               onclick={() => onOpenLogs(service.id)}
-              title="View Live Service Logs"
-              class="w-full py-1.5 px-2.5 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs flex items-center justify-center gap-1.5 transition-all"
+              title="View Live Process Logs"
+              class="py-1.5 px-2 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs flex items-center justify-center gap-1 transition-all"
             >
               <ScrollText class="w-3 h-3 text-slate-500" />
-              <span>Live Logs</span>
+              <span>Logs</span>
+            </button>
+            <button
+              onclick={() => {
+                if (service.id === "caddy") onOpenWeb();
+                else if (service.id === "mariadb") onOpenDatabase("mariadb");
+                else if (service.id === "postgresql") onOpenDatabase("postgresql");
+                else if (service.id === "redis") onOpenDatabase("redis");
+              }}
+              title={service.id === "caddy" ? "Open localhost in Browser" : service.id === "redis" ? "Open Redis CLI Shell" : "Open Database Client"}
+              class="py-1.5 px-2 rounded-lg text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-xs flex items-center justify-center gap-1 transition-all"
+            >
+              {#if service.id === "caddy"}
+                <Globe class="w-3 h-3 text-slate-500" />
+                <span>Browser</span>
+              {:else if service.id === "redis"}
+                <Terminal class="w-3 h-3 text-slate-500" />
+                <span>CLI</span>
+              {:else}
+                <Database class="w-3 h-3 text-slate-500" />
+                <span>Client</span>
+              {/if}
             </button>
           </div>
         </div>

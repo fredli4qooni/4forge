@@ -39,17 +39,16 @@
     autoRegisterProject,
     createDb,
     openProjectTerminal,
-    setWindowCompactMode,
   } from "./lib/actions";
-  import CompactCockpit from "./components/CompactCockpit.svelte";
   import ExpandedCockpit from "./components/ExpandedCockpit.svelte";
   import Toast from "./components/Toast.svelte";
   import AddSiteModal from "./components/modals/AddSiteModal.svelte";
   import DatabaseModal from "./components/modals/DatabaseModal.svelte";
   import UpdateModal from "./components/modals/UpdateModal.svelte";
+  import SettingsModal from "./components/modals/SettingsModal.svelte";
 
-  let viewMode = $state<ViewMode>("compact");
-  let activeTab = $state<TabType>("dashboard");
+  let activeTab = $state<TabType>("services");
+  let showSettingsModal = $state(false);
   let allRunning = $state(false);
   let isLoading = $state(false);
   let toastMessage = $state<string | null>(null);
@@ -87,11 +86,6 @@
     setTimeout(() => { toastMessage = null; }, 3000);
   }
 
-  async function toggleViewMode(): Promise<void> {
-    const nextMode: ViewMode = viewMode === "compact" ? "expanded" : "compact";
-    viewMode = nextMode;
-    await setWindowCompactMode(nextMode === "compact");
-  }
 
   async function checkUpdates(): Promise<void> {
     isCheckingUpdate = true;
@@ -375,81 +369,54 @@
   }
 </script>
 
-{#if viewMode === "compact"}
-  <CompactCockpit
-    {services}
-    {sites}
-    {isLoading}
-    {allRunning}
-    {runningCount}
-    {stoppedCount}
-    {uptimeSeconds}
-    {isScanningWorkspace}
-    onToggleAll={toggleAll}
-    onToggleService={toggleService}
-    onOpenWeb={openWebLocalhost}
-    onOpenDatabase={openDatabaseAction}
-    onOpenTerminal={handleLaunchTerminal}
-    onOpenProjects={handleOpenFolder}
-    onRefresh={() => fetchBackendState(true)}
-    onSwitchToExpanded={toggleViewMode}
-    onOpenSiteBrowser={openSiteBrowser}
-    onOpenProjectTerminal={handleOpenProjectTerminal}
-    onOpenSiteFolder={handleOpenFolder}
-    onScanWorkspace={scanWorkspaceProjects}
-    onOpenAddSite={() => (showAddSiteModal = true)}
-    onCreateDatabase={handleCreateDatabase}
-  />
-{:else}
-  <ExpandedCockpit
-    bind:activeTab
-    {isLoading}
-    {allRunning}
-    {runningCount}
-    {stoppedCount}
-    {services}
-    {sites}
-    bind:logs
-    {portConflicts}
-    bind:dismissedConflictBanner
-    {activePhpVersion}
-    {activeNodeVersion}
-    {activePythonVersion}
-    {activeRubyVersion}
-    {isScanningWorkspace}
-    {missingHosts}
-    {isSyncingHosts}
-    bind:logFilter
-    bind:logSearch
-    onSelectTab={(t) => (activeTab = t)}
-    onToggleAll={toggleAll}
-    onToggleService={toggleService}
-    onOpenWeb={openWebLocalhost}
-    onOpenDatabase={openDatabaseAction}
-    onOpenTerminal={handleLaunchTerminal}
-    onOpenProjects={handleOpenFolder}
-    onOpenUpdateModal={() => (showUpdateModal = true)}
-    onRefresh={() => fetchBackendState(true)}
-    onSwitchToCompact={toggleViewMode}
-    onApplyAlternativePort={applyAlternativePort}
-    onDismissConflict={() => (dismissedConflictBanner = true)}
-    onOpenConfig={openServiceConfig}
-    onOpenLogs={openServiceLogs}
-    onSelectPhpVersion={(v) => switchRuntime("php", v)}
-    onSelectNodeVersion={(v) => switchRuntime("node", v)}
-    onSelectPythonVersion={(v) => switchRuntime("python", v)}
-    onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
-    onScanWorkspace={scanWorkspaceProjects}
-    onOpenAddSite={() => (showAddSiteModal = true)}
-    onSyncHosts={syncHostsNow}
-    onOpenSiteBrowser={openSiteBrowser}
-    onOpenSiteFolder={handleOpenFolder}
-    onOpenProjectTerminal={handleOpenProjectTerminal}
-    onOpenProjectInVsCode={handleOpenVsCode}
-    onDeleteSite={handleDeleteSite}
-    onClearLogs={() => (logs = [])}
-  />
-{/if}
+<ExpandedCockpit
+  bind:activeTab
+  {isLoading}
+  {allRunning}
+  {runningCount}
+  {stoppedCount}
+  {services}
+  {sites}
+  bind:logs
+  {portConflicts}
+  bind:dismissedConflictBanner
+  {activePhpVersion}
+  {activeNodeVersion}
+  {activePythonVersion}
+  {activeRubyVersion}
+  {isScanningWorkspace}
+  {missingHosts}
+  {isSyncingHosts}
+  bind:logFilter
+  bind:logSearch
+  onSelectTab={(t) => (activeTab = t)}
+  onToggleAll={toggleAll}
+  onToggleService={toggleService}
+  onOpenWeb={openWebLocalhost}
+  onOpenDatabase={openDatabaseAction}
+  onOpenTerminal={handleLaunchTerminal}
+  onOpenProjects={handleOpenFolder}
+  onOpenUpdateModal={() => (showUpdateModal = true)}
+  onRefresh={() => fetchBackendState(true)}
+  onOpenSettings={() => (showSettingsModal = true)}
+  onApplyAlternativePort={applyAlternativePort}
+  onDismissConflict={() => (dismissedConflictBanner = true)}
+  onOpenConfig={openServiceConfig}
+  onOpenLogs={openServiceLogs}
+  onSelectPhpVersion={(v) => switchRuntime("php", v)}
+  onSelectNodeVersion={(v) => switchRuntime("node", v)}
+  onSelectPythonVersion={(v) => switchRuntime("python", v)}
+  onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
+  onScanWorkspace={scanWorkspaceProjects}
+  onOpenAddSite={() => (showAddSiteModal = true)}
+  onSyncHosts={syncHostsNow}
+  onOpenSiteBrowser={openSiteBrowser}
+  onOpenSiteFolder={handleOpenFolder}
+  onOpenProjectTerminal={handleOpenProjectTerminal}
+  onOpenProjectInVsCode={handleOpenVsCode}
+  onDeleteSite={handleDeleteSite}
+  onClearLogs={() => (logs = [])}
+/>
 
 <Toast message={toastMessage} />
 
@@ -488,4 +455,14 @@
   {isCheckingUpdate}
   onClose={() => (showUpdateModal = false)}
   onCheckUpdates={checkUpdates}
+/>
+
+<SettingsModal
+  show={showSettingsModal}
+  {domainSuffix}
+  onSaveDomainSuffix={(s) => {
+    domainSuffix = s;
+    showToast(`Default domain suffix updated to .${s}`);
+  }}
+  onClose={() => (showSettingsModal = false)}
 />
