@@ -42,7 +42,7 @@
     {/if}
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
     <div class="rounded-xl border border-slate-200 bg-white p-5 space-y-4 shadow-xs">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">

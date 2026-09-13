@@ -93,7 +93,7 @@
     </div>
   {/if}
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
     {#if sites.length === 0}
       <div class="col-span-full p-12 text-center rounded-xl border border-dashed border-slate-200 bg-white text-slate-400">
         <Globe class="w-8 h-8 mx-auto mb-2 text-slate-400" />

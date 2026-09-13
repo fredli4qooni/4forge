@@ -58,7 +58,7 @@
     {/each}
   </div>
 
-  <div class="rounded-xl border border-slate-200 bg-white p-4 font-mono text-xs overflow-x-auto min-h-[420px] max-h-[560px] overflow-y-auto space-y-1 shadow-xs">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 font-mono text-xs overflow-x-auto min-h-[440px] lg:min-h-[580px] max-h-[calc(100vh-210px)] overflow-y-auto space-y-1 shadow-xs">
     {#if filteredLogs.length === 0}
       <div class="text-slate-400 py-12 text-center italic">No log messages found for current filter.</div>
     {:else}

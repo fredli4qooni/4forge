@@ -402,7 +402,7 @@
         onCreateDatabase={handleCreateDatabase}
       />
     {:else if activeTab === "sites"}
-      <div class="p-6 max-w-5xl mx-auto">
+      <div class="w-full p-5 lg:px-8 lg:py-6">
         <SitesTab
           {sites}
           {missingHosts}
@@ -419,7 +419,7 @@
         />
       </div>
     {:else if activeTab === "runtimes"}
-      <div class="p-6 max-w-5xl mx-auto">
+      <div class="w-full p-5 lg:px-8 lg:py-6">
         <RuntimesTab
           {activePhpVersion}
           {activeNodeVersion}
@@ -433,7 +433,7 @@
         />
       </div>
     {:else if activeTab === "logs"}
-      <div class="p-6 max-w-5xl mx-auto">
+      <div class="w-full p-5 lg:px-8 lg:py-6">
         <LogsTab
           {logs}
           bind:logFilter

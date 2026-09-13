@@ -120,7 +120,7 @@
   }
 </script>
 
-<div class="w-full h-full flex flex-col bg-[#F8F9FA] text-slate-900 select-none overflow-hidden font-sans p-5 space-y-4">
+<div class="w-full h-full flex flex-col bg-[#F8F9FA] text-slate-900 select-none overflow-hidden font-sans p-5 lg:px-8 lg:py-6 space-y-4">
 
   <div class="flex-1 flex flex-col space-y-4 overflow-y-auto pr-0.5">
     <div class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs grid grid-cols-4 divide-x divide-slate-100 shrink-0">

@@ -35,7 +35,7 @@
   } = $props();
 </script>
 
-<header class="h-14 border-b border-slate-200 px-4 flex items-center justify-between shrink-0 bg-white shadow-xs z-30">
+<header class="h-14 border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between shrink-0 bg-white shadow-xs z-30">
   <div class="flex items-center gap-3">
     <div class="flex items-center gap-2">
       <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#B44816] to-[#7C2D12] flex items-center justify-center text-white shadow-xs">
