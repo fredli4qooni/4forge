@@ -37,37 +37,35 @@
 </script>
 
 <header class="h-14 border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between shrink-0 bg-white shadow-xs z-30">
-  <div class="flex items-center gap-3">
-    <div class="flex items-center gap-2">
-      <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#B44816] to-[#7C2D12] flex items-center justify-center text-white shadow-xs">
-        <span class="font-black text-xs tracking-tighter">4F</span>
-      </div>
-      <div class="flex items-center gap-1.5">
-        <span class="font-bold text-sm tracking-tight text-slate-900">4Forge</span>
-        <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-[#94380C] border border-amber-200/60">v0.1.0</span>
-      </div>
+  <div class="flex items-center gap-2.5 shrink-0">
+    <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#B44816] to-[#7C2D12] flex items-center justify-center text-white shadow-xs">
+      <span class="font-black text-xs tracking-tighter">4F</span>
     </div>
+    <div class="flex items-center gap-1.5">
+      <span class="font-bold text-sm tracking-tight text-slate-900">4Forge</span>
+      <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-[#94380C] border border-amber-200/60">v0.1.0</span>
+    </div>
+  </div>
 
-    <div class="h-4 w-px bg-slate-200 mx-1"></div>
-
-    <nav class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200/60">
+  <div class="flex-1 flex items-center justify-center min-w-0 px-2 sm:px-4">
+    <nav class="flex items-center gap-0.5 sm:gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/70 shadow-xs">
       <button
         onclick={() => onSelectTab("cockpit")}
-        class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all {activeTab === 'cockpit'
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'cockpit'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
-          : 'text-slate-600 hover:text-slate-900'}"
+          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
-        <LayoutDashboard class="w-3.5 h-3.5 {activeTab === 'cockpit' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <LayoutDashboard class="w-3.5 h-3.5 shrink-0 {activeTab === 'cockpit' ? 'text-[#94380C]' : 'text-slate-400'}" />
         <span>Cockpit</span>
       </button>
 
       <button
         onclick={() => onSelectTab("sites")}
-        class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all {activeTab === 'sites'
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'sites'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
-          : 'text-slate-600 hover:text-slate-900'}"
+          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
-        <Globe class="w-3.5 h-3.5 {activeTab === 'sites' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <Globe class="w-3.5 h-3.5 shrink-0 {activeTab === 'sites' ? 'text-[#94380C]' : 'text-slate-400'}" />
         <span>Sites</span>
         {#if sitesCount > 0}
           <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full {activeTab === 'sites' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-600'}">
@@ -78,41 +76,41 @@
 
       <button
         onclick={() => onSelectTab("runtimes")}
-        class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all {activeTab === 'runtimes'
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'runtimes'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
-          : 'text-slate-600 hover:text-slate-900'}"
+          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
-        <Layers class="w-3.5 h-3.5 {activeTab === 'runtimes' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <Layers class="w-3.5 h-3.5 shrink-0 {activeTab === 'runtimes' ? 'text-[#94380C]' : 'text-slate-400'}" />
         <span>Runtimes</span>
       </button>
 
       <button
         onclick={() => onSelectTab("logs")}
-        class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all {activeTab === 'logs'
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'logs'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
-          : 'text-slate-600 hover:text-slate-900'}"
+          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
-        <ScrollText class="w-3.5 h-3.5 {activeTab === 'logs' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <ScrollText class="w-3.5 h-3.5 shrink-0 {activeTab === 'logs' ? 'text-[#94380C]' : 'text-slate-400'}" />
         <span>Logs</span>
       </button>
 
       <button
         onclick={() => onSelectTab("terminal")}
-        class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all {activeTab === 'terminal'
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'terminal'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
-          : 'text-slate-600 hover:text-slate-900'}"
+          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
-        <Terminal class="w-3.5 h-3.5 {activeTab === 'terminal' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <Terminal class="w-3.5 h-3.5 shrink-0 {activeTab === 'terminal' ? 'text-[#94380C]' : 'text-slate-400'}" />
         <span>Terminal</span>
       </button>
     </nav>
   </div>
 
-  <div class="flex items-center gap-1.5">
+  <div class="flex items-center gap-1.5 shrink-0">
     <button
       disabled={isLoading}
       onclick={onToggleAll}
-      class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold text-xs transition-all shadow-xs {isLoading
+      class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold text-xs transition-all shadow-xs {isLoading
         ? 'opacity-70 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
         : allRunning
         ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
@@ -130,7 +128,7 @@
       {/if}
     </button>
 
-    <div class="h-4 w-px bg-slate-200 mx-1"></div>
+    <div class="h-4 w-px bg-slate-200 mx-0.5"></div>
 
     <button
       onclick={onOpenUpdateModal}
