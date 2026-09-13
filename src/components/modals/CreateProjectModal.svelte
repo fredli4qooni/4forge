@@ -59,15 +59,15 @@
   let generatedCommand = $derived.by(() => {
     if (selectedTemplate === "laravel") {
       if (selectedVersion === "11") {
-        return `composer create-project laravel/laravel:^11.0 ${cleanSlug}`;
+        return `composer create-project laravel/laravel:^11.0 ${cleanSlug} --no-security-blocking`;
       } else if (selectedVersion === "10") {
-        return `composer create-project laravel/laravel:^10.0 ${cleanSlug}`;
+        return `composer create-project laravel/laravel:^10.0 ${cleanSlug} --no-security-blocking`;
       }
-      return `composer create-project laravel/laravel ${cleanSlug}`;
+      return `composer create-project laravel/laravel ${cleanSlug} --no-security-blocking`;
     } else if (selectedTemplate === "nextjs") {
       return `npx create-next-app@latest ${cleanSlug}`;
     }
-    return `composer create-project roots/bedrock ${cleanSlug}`;
+    return `composer create-project roots/bedrock ${cleanSlug} --no-security-blocking`;
   });
 
   function handleCopy() {
