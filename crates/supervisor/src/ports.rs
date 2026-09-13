@@ -42,6 +42,8 @@ impl PortInspector {
             80 => 8080,
             443 => 8443,
             3306 => 3307,
+            5432 => 5433,
+            6379 => 6380,
             9000 => 9001,
             2019 => 2020,
             p => p + 1,
@@ -79,7 +81,9 @@ impl PortInspector {
             (80, "Caddy Web Server (HTTP)"),
             (443, "Caddy Web Server (HTTPS)"),
             (2019, "Caddy Admin API"),
-            (3306, "MariaDB Database"),
+            (3306, "MySQL / MariaDB Database"),
+            (5432, "PostgreSQL Database"),
+            (6379, "Redis In-Memory Cache"),
             (9000, "PHP-FPM FastCGI"),
         ];
 
@@ -111,7 +115,9 @@ mod tests {
     #[test]
     fn test_check_standard_ports() {
         let results = PortInspector::check_standard_ports();
-        assert_eq!(results.len(), 5);
+        assert_eq!(results.len(), 7);
         assert!(results.iter().any(|r| r.port == 3306));
+        assert!(results.iter().any(|r| r.port == 5432));
+        assert!(results.iter().any(|r| r.port == 6379));
     }
 }

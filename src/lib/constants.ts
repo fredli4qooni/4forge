@@ -1,4 +1,4 @@
-import { Database, Globe, Layers, Server } from "@lucide/svelte";
+import { Database, Globe, Layers, Server, Zap } from "@lucide/svelte";
 import type { ServiceItem, SiteItem, LogMessage } from "../types";
 
 export const INITIAL_SERVICES: ServiceItem[] = [
@@ -13,12 +13,30 @@ export const INITIAL_SERVICES: ServiceItem[] = [
   },
   {
     id: "mariadb",
-    name: "MariaDB Database",
+    name: "MySQL / MariaDB",
     type: "Relational Database",
     version: "v11.4.3",
     ports: "3306",
     status: "stopped",
     icon: Database,
+  },
+  {
+    id: "postgresql",
+    name: "PostgreSQL Database",
+    type: "Relational Database",
+    version: "v16.4",
+    ports: "5432",
+    status: "stopped",
+    icon: Database,
+  },
+  {
+    id: "redis",
+    name: "Redis In-Memory Cache",
+    type: "Key-Value & Queue Cache",
+    version: "v7.2.5",
+    ports: "6379",
+    status: "stopped",
+    icon: Zap,
   },
   {
     id: "php",
@@ -43,4 +61,3 @@ export const INITIAL_SERVICES: ServiceItem[] = [
 export const INITIAL_SITES: SiteItem[] = [];
 
 export const INITIAL_LOGS: LogMessage[] = [];
-

@@ -117,7 +117,7 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
     let mariadb_args = if mariadb_bin.ends_with("cmd.exe") {
         vec![
             "/c".to_string(),
-            "echo [mariadb] mysqld.exe ready for connections on port 3306 (bind: 127.0.0.1) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+            "echo [mariadb] MySQL / MariaDB mysqld.exe ready for connections on port 3306 (bind: 127.0.0.1) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
         ]
     } else {
         vec!["--console".to_string()]
@@ -129,6 +129,65 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
         current_dir: None,
         envs: std::collections::HashMap::new(),
         port: Some(3306),
+        auto_restart: true,
+    });
+
+    let postgres_bin = find_binary_in_path("postgres.exe")
+        .or_else(|| {
+            let p = runtimes_root
+                .join("postgresql")
+                .join("bin")
+                .join("postgres.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let postgres_args = if postgres_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [postgresql] postgres.exe listening on port 5432 (PostgreSQL server) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        vec!["-D".to_string(), "C:\\4forge\\data\\postgres".to_string()]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "postgresql".to_string(),
+        program: postgres_bin,
+        args: postgres_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(5432),
+        auto_restart: true,
+    });
+
+    let redis_bin = find_binary_in_path("redis-server.exe")
+        .or_else(|| {
+            let p = runtimes_root.join("redis").join("redis-server.exe");
+            if p.is_file() {
+                Some(p)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| PathBuf::from("cmd.exe"));
+    let redis_args = if redis_bin.ends_with("cmd.exe") {
+        vec![
+            "/c".to_string(),
+            "echo [redis] redis-server.exe ready for connections on port 6379 & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+        ]
+    } else {
+        vec!["--port".to_string(), "6379".to_string()]
+    };
+    list.push(forge_supervisor::ProcessConfig {
+        name: "redis".to_string(),
+        program: redis_bin,
+        args: redis_args,
+        current_dir: None,
+        envs: std::collections::HashMap::new(),
+        port: Some(6379),
         auto_restart: true,
     });
 
@@ -202,7 +261,7 @@ mod tests {
     async fn test_app_state_and_services() {
         let state = AppState::new().expect("failed to init app state");
         let svcs = state.supervisor.list_services().await;
-        assert_eq!(svcs.len(), 4);
+        assert_eq!(svcs.len(), 6);
 
         let res_caddy = state.supervisor.start_service("caddy").await;
         assert!(res_caddy.is_ok(), "caddy start failed: {:?}", res_caddy);
@@ -212,6 +271,14 @@ mod tests {
             "mariadb start failed: {:?}",
             res_mariadb
         );
+        let res_postgresql = state.supervisor.start_service("postgresql").await;
+        assert!(
+            res_postgresql.is_ok(),
+            "postgresql start failed: {:?}",
+            res_postgresql
+        );
+        let res_redis = state.supervisor.start_service("redis").await;
+        assert!(res_redis.is_ok(), "redis start failed: {:?}", res_redis);
         let res_php = state.supervisor.start_service("php").await;
         assert!(res_php.is_ok(), "php start failed: {:?}", res_php);
         let res_node = state.supervisor.start_service("node").await;
@@ -222,7 +289,7 @@ mod tests {
             .iter()
             .filter(|s| s.status == forge_supervisor::ServiceStatus::Running)
             .count();
-        assert_eq!(running_count, 4);
+        assert_eq!(running_count, 6);
 
         state.supervisor.stop_all().await;
     }

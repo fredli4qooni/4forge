@@ -86,7 +86,7 @@
             <div class="flex justify-between items-center text-slate-600 pt-1 border-t border-slate-200/80">
               <span>Config File</span>
               <span class="font-mono text-[11px] text-slate-800 font-medium">
-                {service.id === "caddy" ? "Caddyfile" : service.id === "php" ? "php.ini" : service.id === "mariadb" ? "my.ini" : "node.env"}
+                {service.id === "caddy" ? "Caddyfile" : service.id === "php" ? "php.ini" : service.id === "mariadb" ? "my.ini" : service.id === "postgresql" ? "postgresql.conf" : service.id === "redis" ? "redis.conf" : "node.env"}
               </span>
             </div>
 

@@ -105,6 +105,8 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
 
     let (caddy_st, caddy_pid) = get_status("caddy");
     let (mariadb_st, mariadb_pid) = get_status("mariadb");
+    let (postgresql_st, postgresql_pid) = get_status("postgresql");
+    let (redis_st, redis_pid) = get_status("redis");
     let (php_st, php_pid) = get_status("php");
     let (node_st, node_pid) = get_status("node");
 
@@ -120,12 +122,30 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
         },
         ServiceItemDto {
             id: "mariadb".to_string(),
-            name: "MariaDB Database".to_string(),
+            name: "MySQL / MariaDB".to_string(),
             service_type: "Relational Database".to_string(),
             version: "v11.4.3".to_string(),
             ports: "3306".to_string(),
             status: mariadb_st,
             pid: mariadb_pid,
+        },
+        ServiceItemDto {
+            id: "postgresql".to_string(),
+            name: "PostgreSQL Database".to_string(),
+            service_type: "Relational Database".to_string(),
+            version: "v16.4".to_string(),
+            ports: "5432".to_string(),
+            status: postgresql_st,
+            pid: postgresql_pid,
+        },
+        ServiceItemDto {
+            id: "redis".to_string(),
+            name: "Redis In-Memory Cache".to_string(),
+            service_type: "Key-Value & Queue Cache".to_string(),
+            version: "v7.2.5".to_string(),
+            ports: "6379".to_string(),
+            status: redis_st,
+            pid: redis_pid,
         },
         ServiceItemDto {
             id: "php".to_string(),
@@ -404,7 +424,7 @@ pub async fn get_system_overview(state: State<'_, AppState>) -> Result<SystemOve
 
     Ok(SystemOverviewDto {
         app_version: env!("CARGO_PKG_VERSION").to_string(),
-        total_services: 4,
+        total_services: 6,
         running_services: running_count,
         active_sites: sites_count,
         memory_mb: mem_mb,
@@ -537,6 +557,16 @@ pub async fn open_service_config(service_id: String) -> Result<String, String> {
         "mariadb" | "mysql" => {
             let path = base_dir.join("my.ini");
             let content = "[mysqld]\nport = 3306\nbind-address = 127.0.0.1\nmax_connections = 100\ndefault-storage-engine = INNODB\ncharacter-set-server = utf8mb4\ncollation-server = utf8mb4_unicode_ci\n\n[client]\nport = 3306\ndefault-character-set = utf8mb4\n";
+            (path, content)
+        }
+        "postgresql" | "postgres" => {
+            let path = base_dir.join("postgresql.conf");
+            let content = "# PostgreSQL Configuration for 4Forge\nlisten_addresses = '127.0.0.1'\nport = 5432\nmax_connections = 100\nshared_buffers = 128MB\n";
+            (path, content)
+        }
+        "redis" => {
+            let path = base_dir.join("redis.conf");
+            let content = "# Redis Configuration for 4Forge\nbind 127.0.0.1\nport 6379\ntimeout 0\ndatabases 16\n";
             (path, content)
         }
         "node" => {

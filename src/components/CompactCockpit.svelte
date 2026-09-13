@@ -89,9 +89,21 @@
     }
   }
 
+  function getDisplayTitle(svc: ServiceItem): string {
+    if (svc.id === "caddy") return "Caddy";
+    if (svc.id === "mariadb") return "MySQL / MariaDB";
+    if (svc.id === "postgresql") return "PostgreSQL";
+    if (svc.id === "redis") return "Redis";
+    if (svc.id === "php") return "PHP-FPM";
+    if (svc.id === "node") return "Node.js";
+    return svc.name;
+  }
+
   function getServiceRole(id: string): string {
     if (id === "caddy") return "Web server";
-    if (id === "mariadb") return "Database";
+    if (id === "mariadb") return "MySQL Database";
+    if (id === "postgresql") return "PostgreSQL DB";
+    if (id === "redis") return "Cache & Queue";
     if (id === "php") return "PHP runtime";
     if (id === "node") return "JS runtime";
     return "Service";
@@ -100,6 +112,7 @@
   function getDisplayPort(svc: ServiceItem): string {
     if (!svc.ports) return ":--";
     const firstPort = svc.ports.split(",")[0].trim();
+    if (firstPort === "Isolated") return "env";
     return `:${firstPort}`;
   }
 </script>
@@ -183,7 +196,7 @@
                 <svc.icon class="w-4 h-4" />
               </div>
               <div>
-                <h3 class="font-semibold text-xs text-slate-900 leading-tight">{svc.id === 'php' ? 'PHP-FPM' : svc.name}</h3>
+                <h3 class="font-semibold text-xs text-slate-900 leading-tight">{getDisplayTitle(svc)}</h3>
                 <p class="text-[11px] text-slate-500 leading-tight mt-0.5">{getServiceRole(svc.id)}</p>
               </div>
             </div>
