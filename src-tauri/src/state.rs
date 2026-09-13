@@ -341,7 +341,12 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
             if p.is_file() {
                 Some(p)
             } else {
-                None
+                let alt_p = alt_runtimes_root.join("php").join("php-cgi.exe");
+                if alt_p.is_file() {
+                    Some(alt_p)
+                } else {
+                    None
+                }
             }
         })
         .unwrap_or_else(|| PathBuf::from("cmd.exe"));
