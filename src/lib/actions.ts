@@ -126,23 +126,43 @@ export async function scanWorkspace(domainSuffix: string): Promise<DetectedProje
 }
 
 export async function fetchServices(): Promise<any[] | null> {
-  return await invokeTauri<any[]>("get_services");
+  try {
+    return await invokeTauri<any[]>("get_services");
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchSites(): Promise<SiteItem[] | null> {
-  return await invokeTauri<SiteItem[]>("list_sites");
+  try {
+    return await invokeTauri<SiteItem[]>("list_sites");
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchMissingHosts(): Promise<string[] | null> {
-  return await invokeTauri<string[]>("check_hosts_sync");
+  try {
+    return await invokeTauri<string[]>("check_hosts_sync");
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchLogs(limit: number = 100): Promise<LogMessage[] | null> {
-  return await invokeTauri<LogMessage[]>("get_logs", { limit });
+  try {
+    return await invokeTauri<LogMessage[]>("get_logs", { limit });
+  } catch {
+    return null;
+  }
 }
 
 export async function fetchPortConflicts(): Promise<PortCheckResult[] | null> {
-  return await invokeTauri<PortCheckResult[]>("check_port_conflicts");
+  try {
+    return await invokeTauri<PortCheckResult[]>("check_port_conflicts");
+  } catch {
+    return null;
+  }
 }
 
 export async function startService(id: string): Promise<void> {
@@ -189,8 +209,12 @@ export async function createDb(dbName: string, engine?: string): Promise<boolean
 export async function fetchAllDatabases(): Promise<UserDatabaseItem[]> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    const res = await invokeTauri<UserDatabaseItem[]>("list_all_databases");
-    return res || [];
+    try {
+      const res = await invokeTauri<UserDatabaseItem[]>("list_all_databases");
+      return res || [];
+    } catch {
+      return [];
+    }
   }
   return [];
 }

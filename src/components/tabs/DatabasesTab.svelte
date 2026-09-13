@@ -1,11 +1,7 @@
 <script lang="ts">
   import {
-    Check,
-    Copy,
     Database,
-    ExternalLink,
     FileText,
-    Globe,
     Plus,
     Power,
     RefreshCw,
@@ -17,6 +13,8 @@
   import mariaLogo from "../../assets/logos/mysql-logo.svg";
   import postgresLogo from "../../assets/logos/postgresql-logo.svg";
   import mongoLogo from "../../assets/logos/mongo-logo.svg";
+  import DatabaseCard from "../cards/DatabaseCard.svelte";
+  import CreateDatabaseModal from "../modals/CreateDatabaseModal.svelte";
 
   let {
     databases = [],
@@ -43,9 +41,6 @@
   let selectedFilter = $state<string>("all");
   let searchQuery = $state<string>("");
   let showCreateModal = $state(false);
-  let newDbName = $state("");
-  let selectedEngine = $state("mariadb");
-  let isSubmitting = $state(false);
   let copiedDbName = $state<string | null>(null);
   let dbPendingDelete = $state<UserDatabaseItem | null>(null);
 
@@ -81,64 +76,6 @@
   let mariaSvc = $derived(services.find((s) => s.id === "mariadb"));
   let pgSvc = $derived(services.find((s) => s.id === "postgresql"));
   let mongoSvc = $derived(services.find((s) => s.id === "mongodb"));
-
-  async function handleCreateSubmit() {
-    if (!newDbName.trim()) return;
-    isSubmitting = true;
-    try {
-      await onCreateDatabase(newDbName.trim(), selectedEngine);
-      newDbName = "";
-      showCreateModal = false;
-    } finally {
-      isSubmitting = false;
-    }
-  }
-
-  function getEngineDetails(engine: string) {
-    const eng = engine.toLowerCase();
-    if (eng.includes("postgres")) {
-      return {
-        label: "PostgreSQL",
-        logo: postgresLogo,
-        port: 5432,
-        user: "postgres",
-        badgeBg: "bg-blue-50 text-blue-700 border-blue-200",
-        pillActiveBg: "bg-blue-600 text-white",
-        iconText: "PG",
-      };
-    }
-    if (eng.includes("mongo")) {
-      return {
-        label: "MongoDB",
-        logo: mongoLogo,
-        port: 27017,
-        user: "admin",
-        badgeBg: "bg-emerald-50 text-emerald-700 border-emerald-200",
-        pillActiveBg: "bg-emerald-600 text-white",
-        iconText: "MG",
-      };
-    }
-    if (eng.includes("sqlite")) {
-      return {
-        label: "SQLite",
-        logo: null,
-        port: null,
-        user: "file",
-        badgeBg: "bg-indigo-50 text-indigo-700 border-indigo-200",
-        pillActiveBg: "bg-indigo-600 text-white",
-        iconText: "SQL",
-      };
-    }
-    return {
-      label: "MySQL / MariaDB",
-      logo: mariaLogo,
-      port: 3306,
-      user: "root",
-      badgeBg: "bg-amber-50 text-amber-800 border-amber-200",
-      pillActiveBg: "bg-[#94380C] text-white",
-      iconText: "MY",
-    };
-  }
 
   function copyEnvSnippet(db: UserDatabaseItem) {
     const eng = db.engine.toLowerCase();
@@ -358,180 +295,25 @@
   {:else}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {#each filteredDatabases as db (db.name + db.engine)}
-        {@const details = getEngineDetails(db.engine)}
-        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between group">
-          <div class="space-y-3">
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex items-center gap-2.5 min-w-0">
-                <div class="w-8 h-8 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-center p-1 shrink-0">
-                  {#if details.logo}
-                    <img src={details.logo} alt={details.label} class="w-5 h-5 object-contain" />
-                  {:else}
-                    <FileText class="w-4 h-4 text-indigo-600" />
-                  {/if}
-                </div>
-                <div class="min-w-0">
-                  <h3 class="font-bold text-sm text-slate-900 truncate font-mono" title={db.name}>
-                    {db.name}
-                  </h3>
-                  <div class="flex items-center gap-1.5 mt-0.5">
-                    <span class="text-[10px] font-medium px-1.5 py-0.2 rounded border {details.badgeBg}">
-                      {details.label}
-                    </span>
-                    <span class="inline-flex items-center gap-1 text-[10px] {db.status === 'running' ? 'text-emerald-700' : 'text-slate-500'}">
-                      <span class="w-1.5 h-1.5 rounded-full {db.status === 'running' ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
-                      <span>{db.status === 'running' ? 'Ready' : 'Stopped'}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onclick={() => (dbPendingDelete = db)}
-                class="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
-                title="Delete Database"
-              >
-                <Trash2 class="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div class="bg-slate-50 rounded-lg p-2.5 border border-slate-100 text-xs space-y-1 font-mono text-slate-600">
-              <div class="flex justify-between items-center text-[11px]">
-                <span class="text-slate-400 font-sans">Host:</span>
-                <span class="text-slate-800 truncate max-w-[180px]" title={db.host}>{db.host}</span>
-              </div>
-              {#if details.port}
-                <div class="flex justify-between items-center text-[11px]">
-                  <span class="text-slate-400 font-sans">Port:</span>
-                  <span class="text-slate-800">{details.port}</span>
-                </div>
-              {/if}
-              <div class="flex justify-between items-center text-[11px]">
-                <span class="text-slate-400 font-sans">User:</span>
-                <span class="text-slate-800">{db.user || details.user}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
-            <div class="flex items-center gap-1.5">
-              <button
-                onclick={() => onOpenAdminer(db.engine, db.name)}
-                class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-2xs"
-                title="Open in Adminer Web UI"
-              >
-                <Globe class="w-3.5 h-3.5 text-slate-500" />
-                <span>Adminer</span>
-              </button>
-
-              <button
-                onclick={() => onLaunchNative(db.engine)}
-                class="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-2xs"
-                title="Launch Desktop Database App"
-              >
-                <ExternalLink class="w-3.5 h-3.5 text-slate-500" />
-              </button>
-            </div>
-
-            <button
-              onclick={() => copyEnvSnippet(db)}
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-2xs"
-              title="Copy .env Configuration"
-            >
-              {#if copiedDbName === db.name}
-                <Check class="w-3.5 h-3.5 text-emerald-600" />
-                <span class="text-emerald-700 font-semibold">Copied</span>
-              {:else}
-                <Copy class="w-3.5 h-3.5 text-slate-500" />
-                <span>.env</span>
-              {/if}
-            </button>
-          </div>
-        </div>
+        <DatabaseCard
+          {db}
+          copied={copiedDbName === db.name}
+          onCopyEnv={copyEnvSnippet}
+          onOpenAdminer={onOpenAdminer}
+          onLaunchNative={onLaunchNative}
+          onRequestDelete={(item) => (dbPendingDelete = item)}
+        />
       {/each}
     </div>
   {/if}
 </div>
 
-{#if showCreateModal}
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-    <div class="bg-white border border-slate-200 w-full max-w-md rounded-xl p-6 space-y-4 shadow-xl text-slate-900">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="p-2 rounded-lg bg-amber-50 text-[#94380C] border border-amber-200">
-            <Database class="w-5 h-5" />
-          </div>
-          <div>
-            <h3 class="font-bold text-sm text-slate-900">Create New Database</h3>
-            <p class="text-xs text-slate-500">Pick engine and database name</p>
-          </div>
-        </div>
-        <button
-          onclick={() => (showCreateModal = false)}
-          class="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition-colors"
-        >
-          <X class="w-4 h-4" />
-        </button>
-      </div>
-
-      <form onsubmit={(e) => { e.preventDefault(); handleCreateSubmit(); }} class="space-y-3">
-        <div>
-          <label for="db-name" class="block text-xs font-semibold text-slate-700 mb-1">Database Name</label>
-          <input
-            id="db-name"
-            type="text"
-            bind:value={newDbName}
-            placeholder="e.g. laravel_app, my_store"
-            class="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-mono text-slate-900 focus:outline-none focus:border-slate-900 shadow-xs"
-            required
-          />
-        </div>
-
-        <div>
-          <label for="db-engine" class="block text-xs font-semibold text-slate-700 mb-1">Database Engine</label>
-          <select
-            id="db-engine"
-            bind:value={selectedEngine}
-            class="w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-900 focus:outline-none focus:border-slate-900 shadow-xs cursor-pointer"
-          >
-            <option value="mariadb">MySQL / MariaDB (Port 3306)</option>
-            <option value="postgresql">PostgreSQL (Port 5432)</option>
-            <option value="sqlite">SQLite (Embedded / File-based)</option>
-            <option value="mongodb">MongoDB (Port 27017)</option>
-          </select>
-        </div>
-
-        <div class="bg-slate-50 rounded-lg p-3 text-xs text-slate-600 border border-slate-200 space-y-1">
-          <div class="flex justify-between items-center">
-            <span class="text-slate-500">Default Host:</span>
-            <span class="font-mono font-medium text-slate-800">127.0.0.1</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-slate-500">Charset:</span>
-            <span class="font-mono font-medium text-slate-800">utf8mb4 / UTF8 Unicode</span>
-          </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-          <button
-            type="button"
-            onclick={() => (showCreateModal = false)}
-            class="px-3.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting || !newDbName.trim()}
-            class="px-4 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-colors"
-          >
-            {isSubmitting ? "Creating..." : "Create Database"}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-{/if}
+<CreateDatabaseModal
+  show={showCreateModal}
+  onClose={() => (showCreateModal = false)}
+  onCreate={onCreateDatabase}
+  {onShowToast}
+/>
 
 {#if dbPendingDelete}
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">

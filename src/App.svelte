@@ -133,7 +133,8 @@
       databases = await fetchAllDatabases();
       showToast(`Database '${dbName}' created successfully!`);
     } catch (err: any) {
-      showToast(`Failed to create database: ${err}`);
+      showToast(`Failed to create database: ${err?.message || err}`);
+      throw err;
     }
   }
 

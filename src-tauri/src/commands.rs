@@ -104,11 +104,33 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
     };
 
     let (caddy_st, caddy_pid) = get_status("caddy");
-    let (mariadb_st, mariadb_pid) = get_status("mariadb");
-    let (postgresql_st, postgresql_pid) = get_status("postgresql");
-    let (redis_st, redis_pid) = get_status("redis");
+    let (mut mariadb_st, mariadb_pid) = get_status("mariadb");
+    let (_, postgresql_pid) = get_status("postgresql");
+    let (_, redis_pid) = get_status("redis");
     let (php_st, php_pid) = get_status("php");
     let (node_st, node_pid) = get_status("node");
+
+    let maria_healthy = forge_db_manager::DatabaseManager::check_port_health(3306, 150).await;
+    let pg_healthy = forge_db_manager::DatabaseManager::check_port_health(5432, 150).await;
+    let redis_healthy = forge_db_manager::DatabaseManager::check_port_health(6379, 150).await;
+
+    if maria_healthy {
+        mariadb_st = "running".to_string();
+    } else if mariadb_st == "running" && !crate::state::is_runtime_installed("mariadb") {
+        mariadb_st = "stopped".to_string();
+    }
+
+    let postgresql_st = if pg_healthy {
+        "running".to_string()
+    } else {
+        "stopped".to_string()
+    };
+
+    let redis_st = if redis_healthy {
+        "running".to_string()
+    } else {
+        "stopped".to_string()
+    };
 
     let list = vec![
         ServiceItemDto {

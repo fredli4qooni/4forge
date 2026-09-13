@@ -121,6 +121,9 @@ pub fn dirs_next_or_default() -> PathBuf {
 }
 
 pub fn find_binary_in_path(bin_name: &str) -> Option<PathBuf> {
+    if let Some(bin) = forge_db_manager::DatabaseManager::find_executable(bin_name, &[]) {
+        return Some(bin);
+    }
     if let Some(paths) = std::env::var_os("PATH") {
         for path in std::env::split_paths(&paths) {
             let candidate = path.join(bin_name);

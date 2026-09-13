@@ -136,6 +136,78 @@ impl DatabaseManager {
         list
     }
 
+    pub fn find_executable(name: &str, extra_dirs: &[PathBuf]) -> Option<PathBuf> {
+        let exe_name = if name.ends_with(".exe") {
+            name.to_string()
+        } else {
+            format!("{name}.exe")
+        };
+
+        for dir in extra_dirs {
+            let candidate = dir.join(&exe_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+            let candidate_raw = dir.join(name);
+            if candidate_raw.is_file() {
+                return Some(candidate_raw);
+            }
+        }
+
+        if let Some(paths) = std::env::var_os("PATH") {
+            for path in std::env::split_paths(&paths) {
+                let candidate = path.join(&exe_name);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+                let candidate_raw = path.join(name);
+                if candidate_raw.is_file() {
+                    return Some(candidate_raw);
+                }
+            }
+        }
+
+        let mut search_roots = vec![
+            PathBuf::from("C:\\4forge\\runtimes"),
+            PathBuf::from("D:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\laragon\\bin\\mysql"),
+            PathBuf::from("D:\\laragon\\bin"),
+            PathBuf::from("C:\\laragon\\bin"),
+            PathBuf::from("C:\\Program Files\\PostgreSQL"),
+            PathBuf::from("C:\\Program Files\\MariaDB"),
+            PathBuf::from("C:\\Program Files\\MySQL"),
+        ];
+        if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+            search_roots.push(PathBuf::from(appdata).join("4Forge").join("runtimes"));
+        }
+
+        for root in &search_roots {
+            if root.is_dir() {
+                let direct_bin = root.join("bin").join(&exe_name);
+                if direct_bin.is_file() {
+                    return Some(direct_bin);
+                }
+                if let Ok(entries) = std::fs::read_dir(root) {
+                    for entry in entries.flatten() {
+                        let sub = entry.path();
+                        if sub.is_dir() {
+                            let sub_bin = sub.join("bin").join(&exe_name);
+                            if sub_bin.is_file() {
+                                return Some(sub_bin);
+                            }
+                            let sub_direct = sub.join(&exe_name);
+                            if sub_direct.is_file() {
+                                return Some(sub_direct);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
     pub fn registry_file_path() -> PathBuf {
         let default_path = PathBuf::from("C:\\4forge\\config\\databases.json");
         if default_path.parent().map(|p| p.is_dir()).unwrap_or(false) || default_path.is_file() {
@@ -192,7 +264,7 @@ impl DatabaseManager {
             },
         ];
 
-        let mut discovered_sqlite = false;
+        let mut discovered_new = false;
         for dir in &sqlite_dirs {
             if dir.is_dir() {
                 if let Ok(entries) = std::fs::read_dir(dir) {
@@ -223,7 +295,7 @@ impl DatabaseManager {
                                         status: "running".to_string(),
                                         created_at: Some("local".to_string()),
                                     });
-                                    discovered_sqlite = true;
+                                    discovered_new = true;
                                 }
                             }
                         }
@@ -232,13 +304,118 @@ impl DatabaseManager {
             }
         }
 
-        if discovered_sqlite {
-            let _ = Self::save_registry(&list);
-        }
-
         let maria_healthy = Self::check_port_health(3306, 300).await;
         let pg_healthy = Self::check_port_health(5432, 300).await;
         let mongo_healthy = Self::check_port_health(27017, 300).await;
+
+        if maria_healthy {
+            let extra_dirs = [PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin")];
+            if let Some(cli) = Self::find_executable("mysql", &extra_dirs)
+                .or_else(|| Self::find_executable("mariadb", &extra_dirs))
+            {
+                if let Ok(Ok(output)) = tokio::time::timeout(
+                    Duration::from_millis(1500),
+                    tokio::process::Command::new(&cli)
+                        .args([
+                            "-u",
+                            "root",
+                            "-h",
+                            "127.0.0.1",
+                            "--port=3306",
+                            "-B",
+                            "-N",
+                            "-e",
+                            "SHOW DATABASES;",
+                        ])
+                        .output(),
+                )
+                .await
+                {
+                    if output.status.success() {
+                        let text = String::from_utf8_lossy(&output.stdout);
+                        for line in text.lines() {
+                            let db_name = line.trim();
+                            if db_name.is_empty() {
+                                continue;
+                            }
+                            let skip = ["information_schema", "performance_schema", "mysql", "sys"];
+                            if skip.iter().any(|s| s.eq_ignore_ascii_case(db_name)) {
+                                continue;
+                            }
+                            if !list.iter().any(|d| {
+                                (d.engine == "mariadb" || d.engine == "mysql")
+                                    && d.name.eq_ignore_ascii_case(db_name)
+                            }) {
+                                list.push(UserDatabaseDto {
+                                    name: db_name.to_string(),
+                                    engine: "mariadb".to_string(),
+                                    host: "127.0.0.1".to_string(),
+                                    port: Some(3306),
+                                    user: Some("root".to_string()),
+                                    size_bytes: None,
+                                    tables_count: None,
+                                    status: "running".to_string(),
+                                    created_at: Some("active".to_string()),
+                                });
+                                discovered_new = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if pg_healthy {
+            let extra_dirs = [PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin")];
+            if let Some(cli) = Self::find_executable("psql", &extra_dirs) {
+                if let Ok(Ok(output)) = tokio::time::timeout(
+                    Duration::from_millis(1500),
+                    tokio::process::Command::new(&cli)
+                        .args([
+                            "-h",
+                            "127.0.0.1",
+                            "-p",
+                            "5432",
+                            "-U",
+                            "postgres",
+                            "-t",
+                            "-A",
+                            "-c",
+                            "SELECT datname FROM pg_database WHERE datistemplate = false AND datname != 'postgres';",
+                        ])
+                        .output(),
+                )
+                .await
+                {
+                    if output.status.success() {
+                        let text = String::from_utf8_lossy(&output.stdout);
+                        for line in text.lines() {
+                            let db_name = line.trim();
+                            if db_name.is_empty() {
+                                continue;
+                            }
+                            if !list.iter().any(|d| {
+                                (d.engine == "postgresql" || d.engine == "postgres")
+                                    && d.name.eq_ignore_ascii_case(db_name)
+                            }) {
+                                list.push(UserDatabaseDto {
+                                    name: db_name.to_string(),
+                                    engine: "postgresql".to_string(),
+                                    host: "127.0.0.1".to_string(),
+                                    port: Some(5432),
+                                    user: Some("postgres".to_string()),
+                                    size_bytes: None,
+                                    tables_count: None,
+                                    status: "running".to_string(),
+                                    created_at: Some("active".to_string()),
+                                });
+                                discovered_new = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         for db in &mut list {
             match db.engine.as_str() {
@@ -272,6 +449,10 @@ impl DatabaseManager {
             }
         }
 
+        if discovered_new {
+            let _ = Self::save_registry(&list);
+        }
+
         list
     }
 
@@ -298,63 +479,78 @@ impl DatabaseManager {
                 let is_running = Self::check_port_health(port, 400).await;
                 if !is_running {
                     return Err(format!(
-                        "MariaDB is not running on port {port}. Please start MariaDB service first."
+                        "MariaDB / MySQL is not running on port {port}. Please start the database service first."
                     ));
                 }
 
-                let mut candidates = vec![
-                    PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin\\mysqladmin.exe"),
-                    PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin\\mariadb-admin.exe"),
-                    PathBuf::from("mysqladmin.exe"),
-                    PathBuf::from("mariadb-admin.exe"),
-                ];
+                let mut extra_dirs = Vec::new();
                 if let Some(driver) = self.drivers.get(&DatabaseEngine::MariaDb) {
                     let base = driver
                         .data_dir()
                         .parent()
                         .map(|p| p.to_path_buf())
                         .unwrap_or_else(|| driver.data_dir().to_path_buf());
-                    candidates.insert(0, base.join("bin").join("mysqladmin.exe"));
-                    candidates.insert(1, base.join("bin").join("mariadb-admin.exe"));
+                    extra_dirs.push(base.join("bin"));
+                    extra_dirs.push(base);
                 }
+                extra_dirs.push(PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"));
 
-                let mut created = false;
-                for candidate in candidates {
-                    if candidate.exists() {
-                        let output = tokio::process::Command::new(&candidate)
-                            .args([
-                                "-u",
-                                "root",
-                                &format!("--port={port}"),
-                                "-h",
-                                "127.0.0.1",
-                                "create",
-                                clean,
-                            ])
-                            .output()
-                            .await;
+                let admin_bin = Self::find_executable("mysqladmin", &extra_dirs)
+                    .or_else(|| Self::find_executable("mariadb-admin", &extra_dirs));
 
-                        if let Ok(out) = output {
-                            if out.status.success() {
-                                created = true;
-                                break;
-                            }
-                            let err_msg = String::from_utf8_lossy(&out.stderr);
-                            if err_msg.contains("database exists")
-                                || err_msg.contains("already exists")
-                            {
-                                created = true;
-                                break;
-                            }
-                            return Err(format!("Failed to create database: {err_msg}"));
+                if let Some(bin) = admin_bin {
+                    let output = tokio::process::Command::new(&bin)
+                        .args([
+                            "-u",
+                            "root",
+                            &format!("--port={port}"),
+                            "-h",
+                            "127.0.0.1",
+                            "create",
+                            clean,
+                        ])
+                        .output()
+                        .await
+                        .map_err(|e| format!("Failed to execute {}: {e}", bin.display()))?;
+
+                    if !output.status.success() {
+                        let err_msg = String::from_utf8_lossy(&output.stderr);
+                        if !err_msg.contains("database exists")
+                            && !err_msg.contains("already exists")
+                        {
+                            return Err(format!(
+                                "Failed to create MySQL/MariaDB database: {err_msg}"
+                            ));
                         }
                     }
-                }
+                    Ok(())
+                } else if let Some(cli_bin) = Self::find_executable("mysql", &extra_dirs) {
+                    let output = tokio::process::Command::new(&cli_bin)
+                        .args([
+                            "-u",
+                            "root",
+                            &format!("--port={port}"),
+                            "-h",
+                            "127.0.0.1",
+                            "-e",
+                            &format!(
+                                "CREATE DATABASE IF NOT EXISTS `{clean}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+                            ),
+                        ])
+                        .output()
+                        .await
+                        .map_err(|e| format!("Failed to execute {}: {e}", cli_bin.display()))?;
 
-                if !created {
-                    return Err("MariaDB admin binary not found".to_string());
+                    if !output.status.success() {
+                        let err_msg = String::from_utf8_lossy(&output.stderr);
+                        return Err(format!(
+                            "Failed to create database via mysql CLI: {err_msg}"
+                        ));
+                    }
+                    Ok(())
+                } else {
+                    Err("MySQL / MariaDB CLI binary (mysqladmin.exe or mysql.exe) not found on system PATH or runtimes.".to_string())
                 }
-                Ok(())
             }
             "postgresql" | "postgres" => {
                 let port = self
@@ -365,58 +561,78 @@ impl DatabaseManager {
                 let is_running = Self::check_port_health(port, 400).await;
                 if !is_running {
                     return Err(format!(
-                        "PostgreSQL is not running on port {port}. Please start PostgreSQL service first."
+                        "PostgreSQL is not running on port {port}. Please install PostgreSQL or start the service first."
                     ));
                 }
 
-                let mut candidates = vec![
-                    PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin\\createdb.exe"),
-                    PathBuf::from("createdb.exe"),
-                ];
+                let mut extra_dirs = Vec::new();
                 if let Some(driver) = self.drivers.get(&DatabaseEngine::PostgreSql) {
                     let base = driver
                         .data_dir()
                         .parent()
                         .map(|p| p.to_path_buf())
                         .unwrap_or_else(|| driver.data_dir().to_path_buf());
-                    candidates.insert(0, base.join("bin").join("createdb.exe"));
+                    extra_dirs.push(base.join("bin"));
+                    extra_dirs.push(base);
                 }
+                extra_dirs.push(PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"));
 
-                let mut created = false;
-                for candidate in candidates {
-                    if candidate.exists() {
-                        let output = tokio::process::Command::new(&candidate)
-                            .args([
-                                "-h",
-                                "127.0.0.1",
-                                "-p",
-                                &port.to_string(),
-                                "-U",
-                                "postgres",
-                                clean,
-                            ])
-                            .output()
-                            .await;
+                let createdb_bin = Self::find_executable("createdb", &extra_dirs);
+                let psql_bin = Self::find_executable("psql", &extra_dirs);
 
-                        if let Ok(out) = output {
-                            if out.status.success() {
-                                created = true;
-                                break;
-                            }
-                            let err_msg = String::from_utf8_lossy(&out.stderr);
-                            if err_msg.contains("already exists") {
-                                created = true;
-                                break;
-                            }
+                if let Some(bin) = createdb_bin {
+                    let output = tokio::process::Command::new(&bin)
+                        .args([
+                            "-h",
+                            "127.0.0.1",
+                            "-p",
+                            &port.to_string(),
+                            "-U",
+                            "postgres",
+                            clean,
+                        ])
+                        .output()
+                        .await
+                        .map_err(|e| format!("Failed to execute {}: {e}", bin.display()))?;
+
+                    if !output.status.success() {
+                        let err_msg = String::from_utf8_lossy(&output.stderr);
+                        if !err_msg.contains("already exists") {
                             return Err(format!("Failed to create PostgreSQL database: {err_msg}"));
                         }
                     }
-                }
+                    Ok(())
+                } else if let Some(bin) = psql_bin {
+                    let output = tokio::process::Command::new(&bin)
+                        .args([
+                            "-h",
+                            "127.0.0.1",
+                            "-p",
+                            &port.to_string(),
+                            "-U",
+                            "postgres",
+                            "-c",
+                            &format!("CREATE DATABASE \"{clean}\";"),
+                        ])
+                        .output()
+                        .await
+                        .map_err(|e| format!("Failed to execute {}: {e}", bin.display()))?;
 
-                if !created {
-                    return Err("PostgreSQL createdb binary not found".to_string());
+                    if !output.status.success() {
+                        let err_msg = String::from_utf8_lossy(&output.stderr);
+                        if !err_msg.contains("already exists") {
+                            return Err(format!(
+                                "Failed to create PostgreSQL database via psql: {err_msg}"
+                            ));
+                        }
+                    }
+                    Ok(())
+                } else {
+                    Err(
+                        "PostgreSQL createdb / psql binary not found on system PATH or runtimes."
+                            .to_string(),
+                    )
                 }
-                Ok(())
             }
             "sqlite" | "sqlite3" => {
                 let sqlite_dir = self
@@ -538,42 +754,71 @@ impl DatabaseManager {
                 }
             }
             "mariadb" | "mysql" => {
-                let candidates = vec![
-                    PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin\\mysqladmin.exe"),
-                    PathBuf::from("mysqladmin.exe"),
-                ];
-                for candidate in candidates {
-                    if candidate.exists() {
-                        let _ = tokio::process::Command::new(&candidate)
-                            .args([
-                                "-u",
-                                "root",
-                                "-h",
-                                "127.0.0.1",
-                                "--port=3306",
-                                "drop",
-                                "-f",
-                                clean,
-                            ])
-                            .output()
-                            .await;
-                        break;
-                    }
+                let mut extra_dirs = Vec::new();
+                if let Some(driver) = self.drivers.get(&DatabaseEngine::MariaDb) {
+                    let base = driver.data_dir().to_path_buf();
+                    extra_dirs.push(base.join("bin"));
+                }
+                extra_dirs.push(PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"));
+
+                if let Some(admin) = Self::find_executable("mysqladmin", &extra_dirs)
+                    .or_else(|| Self::find_executable("mariadb-admin", &extra_dirs))
+                {
+                    let _ = tokio::process::Command::new(&admin)
+                        .args([
+                            "-u",
+                            "root",
+                            "-h",
+                            "127.0.0.1",
+                            "--port=3306",
+                            "drop",
+                            "-f",
+                            clean,
+                        ])
+                        .output()
+                        .await;
+                } else if let Some(cli) = Self::find_executable("mysql", &extra_dirs) {
+                    let _ = tokio::process::Command::new(&cli)
+                        .args([
+                            "-u",
+                            "root",
+                            "-h",
+                            "127.0.0.1",
+                            "--port=3306",
+                            "-e",
+                            &format!("DROP DATABASE IF EXISTS `{clean}`;"),
+                        ])
+                        .output()
+                        .await;
                 }
             }
             "postgresql" | "postgres" => {
-                let candidates = vec![
-                    PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin\\dropdb.exe"),
-                    PathBuf::from("dropdb.exe"),
-                ];
-                for candidate in candidates {
-                    if candidate.exists() {
-                        let _ = tokio::process::Command::new(&candidate)
-                            .args(["-h", "127.0.0.1", "-p", "5432", "-U", "postgres", clean])
-                            .output()
-                            .await;
-                        break;
-                    }
+                let mut extra_dirs = Vec::new();
+                if let Some(driver) = self.drivers.get(&DatabaseEngine::PostgreSql) {
+                    let base = driver.data_dir().to_path_buf();
+                    extra_dirs.push(base.join("bin"));
+                }
+                extra_dirs.push(PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"));
+
+                if let Some(dropdb) = Self::find_executable("dropdb", &extra_dirs) {
+                    let _ = tokio::process::Command::new(&dropdb)
+                        .args(["-h", "127.0.0.1", "-p", "5432", "-U", "postgres", clean])
+                        .output()
+                        .await;
+                } else if let Some(psql) = Self::find_executable("psql", &extra_dirs) {
+                    let _ = tokio::process::Command::new(&psql)
+                        .args([
+                            "-h",
+                            "127.0.0.1",
+                            "-p",
+                            "5432",
+                            "-U",
+                            "postgres",
+                            "-c",
+                            &format!("DROP DATABASE IF EXISTS \"{clean}\";"),
+                        ])
+                        .output()
+                        .await;
                 }
             }
             _ => {}
@@ -651,7 +896,6 @@ mod tests {
     async fn test_database_registry_and_listing() {
         let manager = DatabaseManager::new();
         let list = manager.list_all_databases().await;
-        // Should return a valid vector
         let _ = list.len();
     }
 
