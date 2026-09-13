@@ -3,6 +3,7 @@
     Database,
     FolderKanban,
     Globe,
+    Minimize2,
     Play,
     RefreshCw,
     Sparkles,
@@ -22,6 +23,7 @@
     onOpenProjects,
     onOpenUpdateModal,
     onRefresh,
+    onSwitchToCompact,
   }: {
     isLoading: boolean;
     allRunning: boolean;
@@ -34,6 +36,7 @@
     onOpenProjects: () => void;
     onOpenUpdateModal: () => void;
     onRefresh: () => void;
+    onSwitchToCompact: () => void;
   } = $props();
 </script>
 
@@ -124,6 +127,14 @@
       class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800 transition-colors"
     >
       <RefreshCw class="w-4 h-4" />
+    </button>
+
+    <button
+      onclick={onSwitchToCompact}
+      title="Switch to Compact Cockpit (Laragon-style single screen mode)"
+      class="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800 transition-colors"
+    >
+      <Minimize2 class="w-4 h-4" />
     </button>
   </div>
 </header>

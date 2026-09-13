@@ -42,6 +42,24 @@ impl MariaDbDriver {
     pub fn config(&self) -> &MariaDbConfig {
         &self.config
     }
+
+    pub fn build_create_database_command(&self, db_name: &str) -> DatabaseCommand {
+        let admin_bin = self.base_dir.join("bin").join("mysqladmin.exe");
+        DatabaseCommand {
+            program: admin_bin,
+            args: vec![
+                "-u".to_string(),
+                "root".to_string(),
+                format!("--port={}", self.config.port),
+                "-h".to_string(),
+                "127.0.0.1".to_string(),
+                "create".to_string(),
+                db_name.to_string(),
+            ],
+            current_dir: Some(self.base_dir.clone()),
+            envs: HashMap::new(),
+        }
+    }
 }
 
 impl DatabaseDriver for MariaDbDriver {
@@ -132,6 +150,11 @@ mod tests {
         let stop_cmd = driver.build_stop_command().expect("stop command failed");
         assert!(stop_cmd.program.ends_with("mysqladmin.exe"));
         assert!(stop_cmd.args.contains(&"shutdown".to_string()));
+
+        let create_cmd = driver.build_create_database_command("app_db");
+        assert!(create_cmd.program.ends_with("mysqladmin.exe"));
+        assert!(create_cmd.args.contains(&"create".to_string()));
+        assert!(create_cmd.args.contains(&"app_db".to_string()));
 
         let init_cmd = driver.build_init_command().expect("init command failed");
         assert!(init_cmd.program.ends_with("mysql_install_db.exe"));

@@ -60,6 +60,9 @@ pub fn run() {
             commands::auto_register_detected_project,
             commands::check_hosts_sync,
             commands::sync_windows_hosts,
+            commands::create_database,
+            commands::open_project_terminal,
+            commands::set_window_compact_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");

@@ -9,6 +9,7 @@
     RefreshCw,
     Scan,
     ShieldCheck,
+    Terminal,
     Trash2,
   } from "@lucide/svelte";
   import type { SiteItem } from "../../types";
@@ -23,6 +24,7 @@
     onSyncHosts,
     onOpenSiteBrowser,
     onOpenSiteFolder,
+    onOpenProjectTerminal,
     onOpenProjectInVsCode,
     onDeleteSite,
   }: {
@@ -35,6 +37,7 @@
     onSyncHosts: () => void;
     onOpenSiteBrowser: (d: string) => void;
     onOpenSiteFolder: (p: string) => void;
+    onOpenProjectTerminal: (p: string) => void;
     onOpenProjectInVsCode: (p: string) => void;
     onDeleteSite: (d: string) => void;
   } = $props();
@@ -142,6 +145,14 @@
               >
                 <FolderOpen class="w-3.5 h-3.5 text-amber-400" />
                 <span>Folder</span>
+              </button>
+              <button
+                onclick={() => onOpenProjectTerminal(site.path)}
+                class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1.5 transition-colors"
+                title="Open Terminal in Project Directory"
+              >
+                <Terminal class="w-3.5 h-3.5 text-emerald-400" />
+                <span>Terminal</span>
               </button>
               <button
                 onclick={() => onOpenProjectInVsCode(site.path)}

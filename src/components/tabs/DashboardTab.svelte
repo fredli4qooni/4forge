@@ -11,6 +11,7 @@
     Power,
     Scan,
     ScrollText,
+    Terminal,
     Trash2,
   } from "@lucide/svelte";
   import type { PortCheckResult, ServiceItem, SiteItem } from "../../types";
@@ -34,6 +35,7 @@
     onOpenAddSite,
     onOpenSiteBrowser,
     onOpenSiteFolder,
+    onOpenProjectTerminal,
     onOpenProjectInVsCode,
     onDeleteSite,
   }: {
@@ -55,6 +57,7 @@
     onOpenAddSite: () => void;
     onOpenSiteBrowser: (d: string) => void;
     onOpenSiteFolder: (p: string) => void;
+    onOpenProjectTerminal: (p: string) => void;
     onOpenProjectInVsCode: (p: string) => void;
     onDeleteSite: (d: string) => void;
   } = $props();
@@ -292,6 +295,13 @@
                   class="p-1.5 rounded-lg text-amber-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors inline-flex items-center"
                 >
                   <FolderOpen class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onclick={() => onOpenProjectTerminal(site.path)}
+                  title="Open Terminal in Project Directory"
+                  class="p-1.5 rounded-lg text-emerald-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors inline-flex items-center"
+                >
+                  <Terminal class="w-3.5 h-3.5" />
                 </button>
                 <button
                   onclick={() => onOpenProjectInVsCode(site.path)}

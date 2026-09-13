@@ -8,6 +8,7 @@
     SiteItem,
     TabType,
     UpdateCheck,
+    ViewMode,
   } from "./types";
   import { INITIAL_SERVICES, INITIAL_SITES, INITIAL_LOGS } from "./lib/constants";
   import {
@@ -36,9 +37,13 @@
     updateServicePort,
     setRuntimeVersion,
     autoRegisterProject,
+    createDb,
+    openProjectTerminal,
+    setWindowCompactMode,
   } from "./lib/actions";
   import Sidebar from "./components/Sidebar.svelte";
   import HeaderCockpit from "./components/HeaderCockpit.svelte";
+  import CompactCockpit from "./components/CompactCockpit.svelte";
   import PortConflictBanner from "./components/PortConflictBanner.svelte";
   import Toast from "./components/Toast.svelte";
   import DashboardTab from "./components/tabs/DashboardTab.svelte";
@@ -50,6 +55,7 @@
   import DatabaseModal from "./components/modals/DatabaseModal.svelte";
   import UpdateModal from "./components/modals/UpdateModal.svelte";
 
+  let viewMode = $state<ViewMode>("compact");
   let activeTab = $state<TabType>("dashboard");
   let allRunning = $state(false);
   let isLoading = $state(false);
@@ -91,9 +97,13 @@
 
   function showToast(msg: string): void {
     toastMessage = msg;
-    setTimeout(() => {
-      toastMessage = null;
-    }, 3000);
+    setTimeout(() => { toastMessage = null; }, 3000);
+  }
+
+  async function toggleViewMode(): Promise<void> {
+    const nextMode: ViewMode = viewMode === "compact" ? "expanded" : "compact";
+    viewMode = nextMode;
+    await setWindowCompactMode(nextMode === "compact");
   }
 
   async function checkUpdates(): Promise<void> {
@@ -116,16 +126,6 @@
     showToast(`Opening ${url} in browser...`);
   }
 
-  async function openProjectsDirectory(): Promise<void> {
-    await openProjectsFolder();
-    showToast("Opening projects folder in Windows Explorer...");
-  }
-
-  async function openDevTerminal(): Promise<void> {
-    await launchTerminal();
-    showToast("Launching 4Forge Dev Shell (PowerShell with PATH)...");
-  }
-
   async function openDatabaseAction(): Promise<void> {
     const mariaSvc = services.find((s) => s.id === "mariadb");
     if (mariaSvc && mariaSvc.status !== "running") {
@@ -135,14 +135,13 @@
       await fetchBackendState(false);
     }
     const result = await launchDbManager();
-    if (result) {
-      if (result.launched_type === "native") {
-        showToast(`Native database client launched: ${result.client_name}`);
-        return;
-      } else if (result.launched_type === "web_adminer") {
-        showToast("Opened built-in Adminer database manager in browser");
-        return;
-      }
+    if (result?.launched_type === "native") {
+      showToast(`Native database client launched: ${result.client_name}`);
+      return;
+    }
+    if (result?.launched_type === "web_adminer") {
+      showToast("Opened built-in Adminer database manager in browser");
+      return;
     }
     showDatabaseModal = true;
   }
@@ -177,6 +176,24 @@
       showDatabaseModal = false;
     } else {
       showToast("No native desktop client (HeidiSQL, DBeaver, TablePlus) found.");
+    }
+  }
+
+  async function handleCreateDatabase(dbName: string): Promise<void> {
+    try {
+      await createDb(dbName);
+      showToast(`Database '${dbName}' created successfully!`);
+    } catch (err: any) {
+      showToast(`Failed to create database: ${err}`);
+    }
+  }
+
+  async function handleOpenProjectTerminal(path: string): Promise<void> {
+    try {
+      await openProjectTerminal(path);
+      showToast(`Opened PowerShell terminal in ${path}`);
+    } catch (err: any) {
+      showToast(`Failed to open project terminal: ${err}`);
     }
   }
 
@@ -284,12 +301,6 @@
     showToast(`Site ${domain} created and SSL certificate prepared`);
   }
 
-  async function handleDeleteSite(domain: string): Promise<void> {
-    await deleteVirtualHost(domain);
-    await fetchBackendState();
-    showToast(`Site ${domain} removed`);
-  }
-
   async function detectPathFramework(path: string): Promise<void> {
     const res = await detectProject(path, domainSuffix);
     if (res) {
@@ -315,11 +326,6 @@
     isScanningWorkspace = false;
   }
 
-  async function openProjectInVsCode(path: string): Promise<void> {
-    await openVsCode(path);
-    showToast("Opening project in VS Code...");
-  }
-
   async function openSiteBrowser(domain: string): Promise<void> {
     const caddySvc = services.find((s) => s.id === "caddy");
     if (caddySvc && caddySvc.status !== "running") {
@@ -334,11 +340,6 @@
     showToast(`Opening http://${domain}...`);
   }
 
-  async function openSiteFolder(path: string): Promise<void> {
-    await openProjectsFolder(path);
-    showToast("Opening folder in Windows Explorer...");
-  }
-
   function switchRuntime(kind: "php" | "node" | "python" | "ruby", version: string): void {
     if (kind === "php") activePhpVersion = version;
     else if (kind === "node") activeNodeVersion = version;
@@ -349,108 +350,136 @@
   }
 </script>
 
-<div class="flex h-screen w-screen bg-[#0B0F17] text-slate-100 font-sans antialiased overflow-hidden select-none">
-  <Sidebar
-    {activeTab}
-    onSelectTab={(t) => (activeTab = t)}
-    onOpenUpdateModal={() => (showUpdateModal = true)}
+{#if viewMode === "compact"}
+  <CompactCockpit
+    {services}
+    {sites}
+    {isLoading}
+    {allRunning}
+    {runningCount}
+    {stoppedCount}
+    {isScanningWorkspace}
+    onToggleAll={toggleAll}
+    onOpenWeb={openWebLocalhost}
+    onOpenDatabase={openDatabaseAction}
+    onOpenTerminal={async () => { await launchTerminal(); showToast("Launching 4Forge Dev Shell..."); }}
+    onOpenProjects={async () => { await openProjectsFolder(); showToast("Opening projects folder..."); }}
+    onRefresh={() => fetchBackendState(true)}
+    onSwitchToExpanded={toggleViewMode}
+    onOpenSiteBrowser={openSiteBrowser}
+    onOpenProjectTerminal={handleOpenProjectTerminal}
+    onOpenSiteFolder={async (p) => { await openProjectsFolder(p); showToast("Opening folder..."); }}
+    onScanWorkspace={scanWorkspaceProjects}
+    onOpenAddSite={() => (showAddSiteModal = true)}
+    onCreateDatabase={handleCreateDatabase}
   />
-
-  <div class="flex-1 flex flex-col min-w-0 bg-[#0B0F17]">
-    <HeaderCockpit
-      {isLoading}
-      {allRunning}
-      {runningCount}
-      {stoppedCount}
-      onToggleAll={toggleAll}
-      onOpenWeb={openWebLocalhost}
-      onOpenDatabase={openDatabaseAction}
-      onOpenTerminal={openDevTerminal}
-      onOpenProjects={openProjectsDirectory}
+{:else}
+  <div class="flex h-screen w-screen bg-[#0B0F17] text-slate-100 font-sans antialiased overflow-hidden select-none">
+    <Sidebar
+      {activeTab}
+      onSelectTab={(t) => (activeTab = t)}
       onOpenUpdateModal={() => (showUpdateModal = true)}
-      onRefresh={() => fetchBackendState(true)}
     />
 
-    <main class="flex-1 overflow-y-auto p-8 space-y-6">
-      <PortConflictBanner
-        conflicts={portConflicts}
-        dismissed={dismissedConflictBanner}
-        onApplyAlternative={applyAlternativePort}
-        onDismiss={() => (dismissedConflictBanner = true)}
+    <div class="flex-1 flex flex-col min-w-0 bg-[#0B0F17]">
+      <HeaderCockpit
+        {isLoading}
+        {allRunning}
+        {runningCount}
+        {stoppedCount}
+        onToggleAll={toggleAll}
+        onOpenWeb={openWebLocalhost}
+        onOpenDatabase={openDatabaseAction}
+        onOpenTerminal={async () => { await launchTerminal(); showToast("Launching 4Forge Dev Shell..."); }}
+        onOpenProjects={async () => { await openProjectsFolder(); showToast("Opening projects folder..."); }}
+        onOpenUpdateModal={() => (showUpdateModal = true)}
+        onRefresh={() => fetchBackendState(true)}
+        onSwitchToCompact={toggleViewMode}
       />
 
-      {#if activeTab === "dashboard"}
-        <DashboardTab
-          {services}
-          {sites}
-          {portConflicts}
-          {activePhpVersion}
-          {activeNodeVersion}
-          {isScanningWorkspace}
-          onNavigateServices={() => (activeTab = "services")}
-          onToggleService={toggleService}
-          onOpenWeb={openWebLocalhost}
-          onOpenDatabase={openDatabaseAction}
-          onOpenConfig={openServiceConfig}
-          onOpenLogs={openServiceLogs}
-          onSelectPhpVersion={(v) => switchRuntime("php", v)}
-          onSelectNodeVersion={(v) => switchRuntime("node", v)}
-          onScanWorkspace={scanWorkspaceProjects}
-          onOpenAddSite={() => (showAddSiteModal = true)}
-          onOpenSiteBrowser={openSiteBrowser}
-          onOpenSiteFolder={openSiteFolder}
-          onOpenProjectInVsCode={openProjectInVsCode}
-          onDeleteSite={handleDeleteSite}
+      <main class="flex-1 overflow-y-auto p-8 space-y-6">
+        <PortConflictBanner
+          conflicts={portConflicts}
+          dismissed={dismissedConflictBanner}
+          onApplyAlternative={applyAlternativePort}
+          onDismiss={() => (dismissedConflictBanner = true)}
         />
-      {:else if activeTab === "services"}
-        <ServicesTab
-          {services}
-          {activePhpVersion}
-          {activeNodeVersion}
-          onToggleService={toggleService}
-          onOpenWeb={openWebLocalhost}
-          onOpenDatabase={openDatabaseAction}
-          onOpenConfig={openServiceConfig}
-          onOpenLogs={openServiceLogs}
-          onSelectPhpVersion={(v) => switchRuntime("php", v)}
-          onSelectNodeVersion={(v) => switchRuntime("node", v)}
-        />
-      {:else if activeTab === "sites"}
-        <SitesTab
-          {sites}
-          {missingHosts}
-          {isScanningWorkspace}
-          {isSyncingHosts}
-          onScanWorkspace={scanWorkspaceProjects}
-          onOpenAddSite={() => (showAddSiteModal = true)}
-          onSyncHosts={syncHostsNow}
-          onOpenSiteBrowser={openSiteBrowser}
-          onOpenSiteFolder={openSiteFolder}
-          onOpenProjectInVsCode={openProjectInVsCode}
-          onDeleteSite={handleDeleteSite}
-        />
-      {:else if activeTab === "runtimes"}
-        <RuntimesTab
-          {activePhpVersion}
-          {activeNodeVersion}
-          {activePythonVersion}
-          {activeRubyVersion}
-          onSelectPhpVersion={(v) => switchRuntime("php", v)}
-          onSelectNodeVersion={(v) => switchRuntime("node", v)}
-          onSelectPythonVersion={(v) => switchRuntime("python", v)}
-          onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
-        />
-      {:else if activeTab === "logs"}
-        <LogsTab
-          {logs}
-          bind:logFilter
-          bind:logSearch
-          onClearLogs={() => (logs = [])}
-        />
-      {/if}
-    </main>
+
+        {#if activeTab === "dashboard"}
+          <DashboardTab
+            {services}
+            {sites}
+            {portConflicts}
+            {activePhpVersion}
+            {activeNodeVersion}
+            {isScanningWorkspace}
+            onNavigateServices={() => (activeTab = "services")}
+            onToggleService={toggleService}
+            onOpenWeb={openWebLocalhost}
+            onOpenDatabase={openDatabaseAction}
+            onOpenConfig={openServiceConfig}
+            onOpenLogs={openServiceLogs}
+            onSelectPhpVersion={(v) => switchRuntime("php", v)}
+            onSelectNodeVersion={(v) => switchRuntime("node", v)}
+            onScanWorkspace={scanWorkspaceProjects}
+            onOpenAddSite={() => (showAddSiteModal = true)}
+            onOpenSiteBrowser={openSiteBrowser}
+            onOpenSiteFolder={async (p) => { await openProjectsFolder(p); showToast("Opening folder..."); }}
+            onOpenProjectTerminal={handleOpenProjectTerminal}
+            onOpenProjectInVsCode={async (p) => { await openVsCode(p); showToast("Opening in VS Code..."); }}
+            onDeleteSite={async (d) => { await deleteVirtualHost(d); await fetchBackendState(); showToast(`Site ${d} removed`); }}
+          />
+        {:else if activeTab === "services"}
+          <ServicesTab
+            {services}
+            {activePhpVersion}
+            {activeNodeVersion}
+            onToggleService={toggleService}
+            onOpenWeb={openWebLocalhost}
+            onOpenDatabase={openDatabaseAction}
+            onOpenConfig={openServiceConfig}
+            onOpenLogs={openServiceLogs}
+            onSelectPhpVersion={(v) => switchRuntime("php", v)}
+            onSelectNodeVersion={(v) => switchRuntime("node", v)}
+          />
+        {:else if activeTab === "sites"}
+          <SitesTab
+            {sites}
+            {missingHosts}
+            {isScanningWorkspace}
+            {isSyncingHosts}
+            onScanWorkspace={scanWorkspaceProjects}
+            onOpenAddSite={() => (showAddSiteModal = true)}
+            onSyncHosts={syncHostsNow}
+            onOpenSiteBrowser={openSiteBrowser}
+            onOpenSiteFolder={async (p) => { await openProjectsFolder(p); showToast("Opening folder..."); }}
+            onOpenProjectTerminal={handleOpenProjectTerminal}
+            onOpenProjectInVsCode={async (p) => { await openVsCode(p); showToast("Opening in VS Code..."); }}
+            onDeleteSite={async (d) => { await deleteVirtualHost(d); await fetchBackendState(); showToast(`Site ${d} removed`); }}
+          />
+        {:else if activeTab === "runtimes"}
+          <RuntimesTab
+            {activePhpVersion}
+            {activeNodeVersion}
+            {activePythonVersion}
+            {activeRubyVersion}
+            onSelectPhpVersion={(v) => switchRuntime("php", v)}
+            onSelectNodeVersion={(v) => switchRuntime("node", v)}
+            onSelectPythonVersion={(v) => switchRuntime("python", v)}
+            onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
+          />
+        {:else if activeTab === "logs"}
+          <LogsTab
+            {logs}
+            bind:logFilter
+            bind:logSearch
+            onClearLogs={() => (logs = [])}
+          />
+        {/if}
+      </main>
+    </div>
   </div>
-</div>
+{/if}
 
 <Toast message={toastMessage} />
 
@@ -463,15 +492,9 @@
   {domainSuffix}
   detectedProject={detectedProjectItem}
   onClose={() => (showAddSiteModal = false)}
-  onPathChange={(p) => {
-    newSitePath = p;
-    detectPathFramework(p);
-  }}
+  onPathChange={(p) => { newSitePath = p; detectPathFramework(p); }}
   onDomainChange={(d) => (newSiteDomain = d)}
-  onSuffixChange={(s) => {
-    domainSuffix = s;
-    detectPathFramework(newSitePath);
-  }}
+  onSuffixChange={(s) => { domainSuffix = s; detectPathFramework(newSitePath); }}
   onTypeChange={(t) => (newSiteType = t)}
   onTargetChange={(t) => (newSiteTarget = t)}
   onSubmit={handleAddSite}
@@ -482,6 +505,7 @@
   onClose={() => (showDatabaseModal = false)}
   onOpenAdminer={openWebAdminerExplicit}
   onLaunchNative={launchNativeClientExplicit}
+  onCreateDatabase={handleCreateDatabase}
   onCopyUrl={() => {
     navigator.clipboard?.writeText("http://localhost/4forge-adminer/index.php");
     showToast("Adminer URL copied to clipboard!");

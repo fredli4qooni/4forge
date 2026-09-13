@@ -175,3 +175,27 @@ export async function setRuntimeVersion(kind: string, version: string): Promise<
 export async function autoRegisterProject(project: DetectedProject): Promise<void> {
   await invokeTauri("auto_register_detected_project", { project });
 }
+
+export async function createDb(dbName: string): Promise<boolean> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    const res = await invokeTauri<boolean>("create_database", { dbName });
+    return Boolean(res);
+  }
+  return true;
+}
+
+export async function openProjectTerminal(path: string): Promise<void> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    await invokeTauri("open_project_terminal", { path });
+  }
+}
+
+export async function setWindowCompactMode(compact: boolean): Promise<void> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    await invokeTauri("set_window_compact_mode", { compact });
+  }
+}
+

@@ -120,6 +120,74 @@ impl DatabaseManager {
         }
         list
     }
+
+    pub async fn create_database(&self, db_name: &str) -> Result<(), String> {
+        let clean = db_name.trim();
+        if clean.is_empty() {
+            return Err("Database name cannot be empty".to_string());
+        }
+        if !clean.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            return Err(
+                "Database name may only contain alphanumeric characters and underscores"
+                    .to_string(),
+            );
+        }
+
+        if let Some(driver) = self.drivers.get(&DatabaseEngine::MariaDb) {
+            let port = driver.port().unwrap_or(3306);
+            let is_running = Self::check_port_health(port, 400).await;
+            if !is_running {
+                return Err(format!(
+                    "MariaDB is not running on port {port}. Please start MariaDB service first."
+                ));
+            }
+
+            let base = driver
+                .data_dir()
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| driver.data_dir().to_path_buf());
+            let candidates = vec![
+                base.join("bin").join("mysqladmin.exe"),
+                base.join("bin").join("mariadb-admin.exe"),
+                std::path::PathBuf::from("mysqladmin.exe"),
+                std::path::PathBuf::from("mariadb-admin.exe"),
+            ];
+
+            for candidate in candidates {
+                if candidate.exists() {
+                    let output = tokio::process::Command::new(&candidate)
+                        .args([
+                            "-u",
+                            "root",
+                            &format!("--port={port}"),
+                            "-h",
+                            "127.0.0.1",
+                            "create",
+                            clean,
+                        ])
+                        .output()
+                        .await;
+
+                    if let Ok(out) = output {
+                        if out.status.success() {
+                            return Ok(());
+                        }
+                        let err_msg = String::from_utf8_lossy(&out.stderr);
+                        if err_msg.contains("database exists") || err_msg.contains("already exists")
+                        {
+                            return Ok(());
+                        }
+                        return Err(format!("Failed to create database: {err_msg}"));
+                    }
+                }
+            }
+
+            Ok(())
+        } else {
+            Err("MariaDB driver is not registered".to_string())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -147,5 +215,22 @@ mod tests {
         assert_eq!(instances.len(), 1);
         assert_eq!(instances[0].engine, DatabaseEngine::MariaDb);
         assert_eq!(instances[0].port, Some(3306));
+    }
+
+    #[tokio::test]
+    async fn test_database_manager_create_database_validation() {
+        let manager = DatabaseManager::new();
+
+        let res_empty = manager.create_database("").await;
+        assert!(res_empty.is_err());
+        assert!(res_empty.unwrap_err().contains("empty"));
+
+        let res_invalid = manager.create_database("db; DROP TABLE users;").await;
+        assert!(res_invalid.is_err());
+        assert!(res_invalid.unwrap_err().contains("alphanumeric"));
+
+        let res_unregistered = manager.create_database("valid_db").await;
+        assert!(res_unregistered.is_err());
+        assert!(res_unregistered.unwrap_err().contains("not registered"));
     }
 }
