@@ -25,58 +25,58 @@
 <div class="space-y-4">
   <div class="flex items-center justify-between">
     <div>
-      <h2 class="text-xl font-bold text-white">Live Process Logs</h2>
-      <p class="text-xs text-slate-400 mt-1">Real-time asynchronous streaming via LogHub.</p>
+      <h2 class="text-lg font-bold text-slate-900">Live Process Logs</h2>
+      <p class="text-xs text-slate-500 mt-0.5">Real-time asynchronous streaming via LogHub.</p>
     </div>
 
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2.5">
       <input
         type="text"
         bind:value={logSearch}
         placeholder="Search log lines..."
-        class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+        class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs text-slate-900 focus:outline-none focus:border-slate-900 focus:ring-1 focus:ring-slate-900 placeholder:text-slate-400 shadow-xs"
       />
       <button
         onclick={onClearLogs}
-        class="px-3 py-1.5 rounded-lg text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+        class="px-3 py-1.5 rounded-lg text-xs bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-medium shadow-xs transition-colors"
       >
         Clear
       </button>
     </div>
   </div>
 
-  <div class="flex items-center gap-2">
+  <div class="flex items-center gap-1.5">
     {#each ["all", "caddy", "mariadb", "php"] as filter}
       <button
         onclick={() => (logFilter = filter)}
-        class="px-3 py-1 rounded-lg text-xs font-medium uppercase tracking-wider transition-all {logFilter === filter
-          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-          : 'bg-slate-800/60 text-slate-400 border border-slate-800 hover:bg-slate-800'}"
+        class="px-2.5 py-1 rounded-md text-xs font-medium uppercase tracking-wider transition-all {logFilter === filter
+          ? 'bg-slate-900 text-white shadow-xs'
+          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 shadow-xs'}"
       >
         {filter}
       </button>
     {/each}
   </div>
 
-  <div class="rounded-xl border border-slate-800/90 bg-[#090D14] p-4 font-mono text-xs overflow-x-auto min-h-[420px] max-h-[560px] overflow-y-auto space-y-1.5 shadow-inner">
+  <div class="rounded-xl border border-slate-200 bg-white p-4 font-mono text-xs overflow-x-auto min-h-[420px] max-h-[560px] overflow-y-auto space-y-1 shadow-xs">
     {#if filteredLogs.length === 0}
-      <div class="text-slate-500 py-12 text-center italic">No log messages found for current filter.</div>
+      <div class="text-slate-400 py-12 text-center italic">No log messages found for current filter.</div>
     {:else}
       {#each filteredLogs as log}
-        <div class="flex items-start gap-3 py-0.5 leading-relaxed hover:bg-slate-900/50 px-2 rounded">
-          <span class="text-slate-500 shrink-0 select-none">
+        <div class="flex items-start gap-3 py-1 leading-relaxed hover:bg-slate-50 px-2 rounded transition-colors">
+          <span class="text-slate-400 shrink-0 select-none text-[11px]">
             {new Date(log.timestamp_millis).toLocaleTimeString()}
           </span>
           <span
             class="px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase shrink-0 border {log.stream === 'stderr'
-              ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+              ? 'bg-rose-50 text-rose-700 border-rose-200'
               : log.stream === 'system'
-              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-              : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'}"
+              ? 'bg-blue-50 text-blue-700 border-blue-200'
+              : 'bg-slate-100 text-slate-700 border-slate-200'}"
           >
             {log.service}
           </span>
-          <span class="text-slate-300 break-all">{log.message}</span>
+          <span class="text-slate-800 break-all text-[11px]">{log.message}</span>
         </div>
       {/each}
     {/if}

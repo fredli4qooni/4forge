@@ -17,7 +17,7 @@
     Square,
     Terminal,
   } from "@lucide/svelte";
-  import type { PortCheckResult, ServiceItem, SiteItem } from "../types";
+  import type { ServiceItem, SiteItem } from "../types";
 
   let {
     services,
@@ -73,27 +73,25 @@
   }
 </script>
 
-<div class="w-full h-full flex flex-col bg-[#0C101A] text-slate-100 select-none overflow-hidden font-sans">
-  <div class="h-14 px-5 border-b border-slate-800/80 bg-[#0F1626]/80 flex items-center justify-between shrink-0">
+<div class="w-full h-full flex flex-col bg-[#F8FAFC] text-slate-900 select-none overflow-hidden font-sans">
+  <div class="h-14 px-5 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
     <div class="flex items-center gap-2.5">
-      <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-md shadow-cyan-500/20">
+      <div class="w-7 h-7 rounded-lg bg-slate-900 flex items-center justify-center shadow-xs">
         <Server class="w-4 h-4 text-white" />
       </div>
-      <div>
-        <div class="flex items-center gap-1.5">
-          <span class="font-bold text-sm text-white tracking-tight">4Forge</span>
-          <span class="text-[9px] font-semibold uppercase px-1 py-0.2 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">Cockpit</span>
-        </div>
+      <div class="flex items-center gap-1.5">
+        <span class="font-bold text-sm text-slate-900 tracking-tight">4Forge</span>
+        <span class="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Cockpit</span>
       </div>
     </div>
 
     <div class="flex items-center gap-2">
-      <span class="text-[10px] text-emerald-400 font-mono flex items-center gap-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-        <ShieldCheck class="w-3 h-3" /> JobObject
+      <span class="text-[10px] text-emerald-700 font-mono flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-medium">
+        <ShieldCheck class="w-3 h-3 text-emerald-600" /> JobObject
       </span>
       <button
         onclick={onSwitchToExpanded}
-        class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors border border-transparent hover:border-slate-700"
+        class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors shadow-xs"
         title="Switch to Full Dashboard"
       >
         <Maximize2 class="w-4 h-4" />
@@ -103,20 +101,20 @@
 
   <div class="p-5 flex-1 flex flex-col justify-between space-y-4 overflow-y-auto">
     <div class="space-y-3">
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5">
         <button
           disabled={isLoading}
           onclick={onToggleAll}
-          class="flex-1 py-3 px-4 rounded-2xl font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 {isLoading
-            ? 'opacity-70 cursor-not-allowed bg-slate-700 text-slate-300'
+          class="flex-1 py-2.5 px-4 rounded-xl font-semibold text-xs transition-all shadow-xs flex items-center justify-center gap-2 {isLoading
+            ? 'opacity-70 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
             : allRunning
-            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+            ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
             : runningCount > 0
-            ? 'bg-gradient-to-r from-amber-500 to-emerald-600 text-white hover:brightness-110 shadow-amber-500/20'
-            : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-emerald-500/20'}"
+            ? 'bg-slate-900 text-white hover:bg-slate-800'
+            : 'bg-slate-900 text-white hover:bg-slate-800'}"
         >
           {#if isLoading}
-            <RefreshCw class="w-4 h-4 animate-spin" />
+            <RefreshCw class="w-4 h-4 animate-spin text-slate-400" />
             <span>Processing...</span>
           {:else if allRunning}
             <Square class="w-4 h-4 fill-current" />
@@ -133,7 +131,7 @@
         <button
           onclick={onRefresh}
           title="Reload Status"
-          class="p-3 rounded-2xl bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/80 transition-colors"
+          class="p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 transition-colors shadow-xs"
         >
           <RefreshCw class="w-4 h-4" />
         </button>
@@ -141,11 +139,11 @@
 
       <div class="grid grid-cols-4 gap-2">
         {#each services as svc}
-          <div class="rounded-xl p-2 bg-[#121929]/70 border border-slate-800 text-center">
-            <div class="text-[11px] font-bold text-white truncate">{svc.name.split(" ")[0]}</div>
+          <div class="rounded-xl p-2 bg-white border border-slate-200 text-center shadow-xs">
+            <div class="text-[11px] font-semibold text-slate-800 truncate">{svc.name.split(" ")[0]}</div>
             <div class="mt-0.5 flex items-center justify-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full {svc.status === 'running' ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}"></span>
-              <span class="text-[10px] font-mono {svc.status === 'running' ? 'text-emerald-300' : 'text-slate-500'}">
+              <span class="w-1.5 h-1.5 rounded-full {svc.status === 'running' ? 'bg-emerald-500' : 'bg-slate-300'}"></span>
+              <span class="text-[10px] font-mono {svc.status === 'running' ? 'text-emerald-700 font-medium' : 'text-slate-400'}">
                 {svc.status === 'running' ? svc.ports.split(',')[0] : 'Off'}
               </span>
             </div>
@@ -156,55 +154,55 @@
       <div class="grid grid-cols-4 gap-2 pt-1">
         <button
           onclick={onOpenWeb}
-          class="py-2 px-1 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 flex flex-col items-center gap-1 text-xs transition-all hover:border-cyan-500/40"
+          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
         >
-          <Globe class="w-4 h-4 text-cyan-400" />
-          <span class="font-medium text-[11px] text-slate-300">Web</span>
+          <Globe class="w-4 h-4 text-slate-600" />
+          <span class="font-medium text-[11px] text-slate-700">Web</span>
         </button>
 
         <button
           onclick={onOpenDatabase}
-          class="py-2 px-1 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 flex flex-col items-center gap-1 text-xs transition-all hover:border-emerald-500/40"
+          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
         >
-          <Database class="w-4 h-4 text-emerald-400" />
-          <span class="font-medium text-[11px] text-slate-300">Database</span>
+          <Database class="w-4 h-4 text-slate-600" />
+          <span class="font-medium text-[11px] text-slate-700">Database</span>
         </button>
 
         <button
           onclick={onOpenTerminal}
-          class="py-2 px-1 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 flex flex-col items-center gap-1 text-xs transition-all hover:border-amber-500/40"
+          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
         >
-          <Terminal class="w-4 h-4 text-amber-400" />
-          <span class="font-medium text-[11px] text-slate-300">Terminal</span>
+          <Terminal class="w-4 h-4 text-slate-600" />
+          <span class="font-medium text-[11px] text-slate-700">Terminal</span>
         </button>
 
         <button
           onclick={onOpenProjects}
-          class="py-2 px-1 rounded-xl bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 flex flex-col items-center gap-1 text-xs transition-all hover:border-blue-500/40"
+          class="py-2 px-1 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 flex flex-col items-center gap-1 text-xs transition-all shadow-xs hover:border-slate-300"
         >
-          <FolderKanban class="w-4 h-4 text-blue-400" />
-          <span class="font-medium text-[11px] text-slate-300">Root</span>
+          <FolderKanban class="w-4 h-4 text-slate-600" />
+          <span class="font-medium text-[11px] text-slate-700">Root</span>
         </button>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-slate-800/80 bg-[#101726]/60 p-3 space-y-2">
+    <div class="rounded-xl border border-slate-200 bg-white p-3 space-y-2 shadow-xs">
       <div class="flex items-center justify-between">
-        <span class="text-[11px] font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-          <Database class="w-3.5 h-3.5 text-emerald-400" /> Quick DB
+        <span class="text-[11px] font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+          <Database class="w-3.5 h-3.5 text-slate-600" /> Quick DB
         </span>
-        <span class="text-[10px] text-slate-500 font-mono">root@127.0.0.1:3306</span>
+        <span class="text-[10px] text-slate-400 font-mono">root@127.0.0.1:3306</span>
       </div>
       <form onsubmit={(e) => { e.preventDefault(); submitQuickDb(); }} class="flex items-center gap-1.5">
         <input
           type="text"
           bind:value={quickDbName}
           placeholder="New database name..."
-          class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500"
+          class="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 font-mono focus:bg-white focus:border-slate-900 focus:outline-none"
         />
         <button
           type="submit"
-          class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
+          class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors"
         >
           Create
         </button>
@@ -213,19 +211,19 @@
 
     <div class="space-y-2">
       <div class="flex items-center justify-between text-xs">
-        <span class="font-semibold text-slate-300">Projects ({sites.length})</span>
+        <span class="font-semibold text-slate-700">Projects ({sites.length})</span>
         <div class="flex items-center gap-1.5">
           <button
             onclick={onScanWorkspace}
             disabled={isScanningWorkspace}
-            class="text-[11px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1 transition-colors"
+            class="text-[11px] px-2 py-0.5 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-1 shadow-xs transition-colors"
           >
-            <Scan class="w-3 h-3 text-cyan-400 {isScanningWorkspace ? 'animate-spin' : ''}" />
+            <Scan class="w-3 h-3 text-slate-500 {isScanningWorkspace ? 'animate-spin' : ''}" />
             <span>Scan</span>
           </button>
           <button
             onclick={onOpenAddSite}
-            class="text-[11px] px-2 py-0.5 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 flex items-center gap-1 transition-colors"
+            class="text-[11px] px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-1 shadow-xs transition-colors"
           >
             <Plus class="w-3 h-3" />
             <span>Add</span>
@@ -235,16 +233,16 @@
 
       <div class="max-h-36 overflow-y-auto space-y-1.5 pr-0.5">
         {#if sites.length === 0}
-          <div class="p-3 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-500 italic">
+          <div class="p-3 rounded-xl border border-dashed border-slate-200 bg-white text-center text-xs text-slate-400 italic">
             No projects registered. Click "Add" or "Scan" to begin.
           </div>
         {:else}
           {#each sites as site}
-            <div class="p-2 rounded-xl bg-[#0E1524] border border-slate-800/90 flex items-center justify-between text-xs">
+            <div class="p-2 rounded-lg bg-white border border-slate-200 flex items-center justify-between text-xs shadow-xs hover:border-slate-300 transition-all">
               <div class="min-w-0 flex-1 pr-2">
                 <button
                   onclick={() => onOpenSiteBrowser(site.domain)}
-                  class="font-mono font-semibold text-cyan-300 hover:underline truncate block text-left"
+                  class="font-mono font-semibold text-slate-900 hover:text-blue-600 truncate block text-left"
                 >
                   {site.domain}
                 </button>
@@ -254,21 +252,21 @@
                 <button
                   onclick={() => onOpenProjectTerminal(site.path)}
                   title="Open Terminal in Project Directory"
-                  class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition-colors"
+                  class="p-1 rounded-md bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-xs transition-colors"
                 >
                   <Terminal class="w-3.5 h-3.5" />
                 </button>
                 <button
                   onclick={() => onOpenSiteFolder(site.path)}
                   title="Open Project Folder"
-                  class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  class="p-1 rounded-md bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-xs transition-colors"
                 >
                   <FolderOpen class="w-3.5 h-3.5" />
                 </button>
                 <button
                   onclick={() => onOpenSiteBrowser(site.domain)}
                   title="Open in Browser"
-                  class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 transition-colors"
+                  class="p-1 rounded-md bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 shadow-xs transition-colors"
                 >
                   <ExternalLink class="w-3.5 h-3.5" />
                 </button>

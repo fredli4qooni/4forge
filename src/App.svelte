@@ -120,7 +120,7 @@
       await new Promise((r) => setTimeout(r, 600));
       await fetchBackendState(false);
     }
-    const port = caddySvc && caddySvc.ports.includes("8080") ? "8080" : "80";
+    const port = caddySvc?.ports.includes("8080") ? "8080" : "80";
     const url = port === "80" ? "http://localhost" : `http://localhost:${port}`;
     await openUrl(url);
     showToast(`Opening ${url} in browser...`);
@@ -195,6 +195,27 @@
     } catch (err: any) {
       showToast(`Failed to open project terminal: ${err}`);
     }
+  }
+
+  async function handleOpenFolder(p?: string): Promise<void> {
+    await openProjectsFolder(p);
+    showToast(p ? "Opening folder in Windows Explorer..." : "Opening projects directory...");
+  }
+
+  async function handleLaunchTerminal(): Promise<void> {
+    await launchTerminal();
+    showToast("Launching 4Forge Dev Shell...");
+  }
+
+  async function handleOpenVsCode(path: string): Promise<void> {
+    await openVsCode(path);
+    showToast("Opening project in VS Code...");
+  }
+
+  async function handleDeleteSite(domain: string): Promise<void> {
+    await deleteVirtualHost(domain);
+    await fetchBackendState();
+    showToast(`Site ${domain} removed`);
   }
 
   async function openServiceConfig(serviceId: string): Promise<void> {
@@ -362,26 +383,22 @@
     onToggleAll={toggleAll}
     onOpenWeb={openWebLocalhost}
     onOpenDatabase={openDatabaseAction}
-    onOpenTerminal={async () => { await launchTerminal(); showToast("Launching 4Forge Dev Shell..."); }}
-    onOpenProjects={async () => { await openProjectsFolder(); showToast("Opening projects folder..."); }}
+    onOpenTerminal={handleLaunchTerminal}
+    onOpenProjects={handleOpenFolder}
     onRefresh={() => fetchBackendState(true)}
     onSwitchToExpanded={toggleViewMode}
     onOpenSiteBrowser={openSiteBrowser}
     onOpenProjectTerminal={handleOpenProjectTerminal}
-    onOpenSiteFolder={async (p) => { await openProjectsFolder(p); showToast("Opening folder..."); }}
+    onOpenSiteFolder={handleOpenFolder}
     onScanWorkspace={scanWorkspaceProjects}
     onOpenAddSite={() => (showAddSiteModal = true)}
     onCreateDatabase={handleCreateDatabase}
   />
 {:else}
-  <div class="flex h-screen w-screen bg-[#0B0F17] text-slate-100 font-sans antialiased overflow-hidden select-none">
-    <Sidebar
-      {activeTab}
-      onSelectTab={(t) => (activeTab = t)}
-      onOpenUpdateModal={() => (showUpdateModal = true)}
-    />
+  <div class="flex h-screen w-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
+    <Sidebar {activeTab} onSelectTab={(t) => (activeTab = t)} onOpenUpdateModal={() => (showUpdateModal = true)} />
 
-    <div class="flex-1 flex flex-col min-w-0 bg-[#0B0F17]">
+    <div class="flex-1 flex flex-col min-w-0 bg-[#F8FAFC]">
       <HeaderCockpit
         {isLoading}
         {allRunning}
@@ -390,8 +407,8 @@
         onToggleAll={toggleAll}
         onOpenWeb={openWebLocalhost}
         onOpenDatabase={openDatabaseAction}
-        onOpenTerminal={async () => { await launchTerminal(); showToast("Launching 4Forge Dev Shell..."); }}
-        onOpenProjects={async () => { await openProjectsFolder(); showToast("Opening projects folder..."); }}
+        onOpenTerminal={handleLaunchTerminal}
+        onOpenProjects={handleOpenFolder}
         onOpenUpdateModal={() => (showUpdateModal = true)}
         onRefresh={() => fetchBackendState(true)}
         onSwitchToCompact={toggleViewMode}
@@ -424,10 +441,10 @@
             onScanWorkspace={scanWorkspaceProjects}
             onOpenAddSite={() => (showAddSiteModal = true)}
             onOpenSiteBrowser={openSiteBrowser}
-            onOpenSiteFolder={async (p) => { await openProjectsFolder(p); showToast("Opening folder..."); }}
+            onOpenSiteFolder={handleOpenFolder}
             onOpenProjectTerminal={handleOpenProjectTerminal}
-            onOpenProjectInVsCode={async (p) => { await openVsCode(p); showToast("Opening in VS Code..."); }}
-            onDeleteSite={async (d) => { await deleteVirtualHost(d); await fetchBackendState(); showToast(`Site ${d} removed`); }}
+            onOpenProjectInVsCode={handleOpenVsCode}
+            onDeleteSite={handleDeleteSite}
           />
         {:else if activeTab === "services"}
           <ServicesTab
@@ -452,10 +469,10 @@
             onOpenAddSite={() => (showAddSiteModal = true)}
             onSyncHosts={syncHostsNow}
             onOpenSiteBrowser={openSiteBrowser}
-            onOpenSiteFolder={async (p) => { await openProjectsFolder(p); showToast("Opening folder..."); }}
+            onOpenSiteFolder={handleOpenFolder}
             onOpenProjectTerminal={handleOpenProjectTerminal}
-            onOpenProjectInVsCode={async (p) => { await openVsCode(p); showToast("Opening in VS Code..."); }}
-            onDeleteSite={async (d) => { await deleteVirtualHost(d); await fetchBackendState(); showToast(`Site ${d} removed`); }}
+            onOpenProjectInVsCode={handleOpenVsCode}
+            onDeleteSite={handleDeleteSite}
           />
         {:else if activeTab === "runtimes"}
           <RuntimesTab
@@ -469,12 +486,7 @@
             onSelectRubyVersion={(v) => switchRuntime("ruby", v)}
           />
         {:else if activeTab === "logs"}
-          <LogsTab
-            {logs}
-            bind:logFilter
-            bind:logSearch
-            onClearLogs={() => (logs = [])}
-          />
+          <LogsTab {logs} bind:logFilter bind:logSearch onClearLogs={() => (logs = [])} />
         {/if}
       </main>
     </div>
