@@ -40,42 +40,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
   },
 ];
 
-export const INITIAL_SITES: SiteItem[] = [
-  {
-    domain: "laravel-app.test",
-    runtime: "PHP 8.3",
-    ssl: true,
-    path: "C:\\projects\\laravel-app",
-    backend_type: "fastcgi",
-    target: "127.0.0.1:9000",
-  },
-  {
-    domain: "dashboard-api.test",
-    runtime: "Node 22",
-    ssl: true,
-    path: "C:\\projects\\dashboard-api",
-    backend_type: "proxy",
-    target: "127.0.0.1:3000",
-  },
-];
+export const INITIAL_SITES: SiteItem[] = [];
 
-export const INITIAL_LOGS: LogMessage[] = [
-  {
-    service: "caddy",
-    stream: "system",
-    message: "Caddy reverse proxy initialized with internal local CA.",
-    timestamp_millis: Date.now() - 60000,
-  },
-  {
-    service: "mariadb",
-    stream: "stdout",
-    message: "mysqld.exe ready for connections on port 3306 (bind: 127.0.0.1).",
-    timestamp_millis: Date.now() - 45000,
-  },
-  {
-    service: "php",
-    stream: "stdout",
-    message: "php-cgi listening on 127.0.0.1:9000 with extensions (curl, pdo_mysql, mbstring, openssl).",
-    timestamp_millis: Date.now() - 30000,
-  },
-];
+export const INITIAL_LOGS: LogMessage[] = [];
+

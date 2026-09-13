@@ -35,18 +35,7 @@ impl AppState {
         let db_manager = Arc::new(RwLock::new(DatabaseManager::new()));
         let runtime_manager = Arc::new(RwLock::new(RuntimeManager::new(runtimes_root)));
 
-        let default_sites = vec![
-            VirtualHostConfig::new_php(
-                "laravel-app.test",
-                "C:\\projects\\laravel-app",
-                "127.0.0.1:9000",
-            ),
-            VirtualHostConfig::new_proxy(
-                "dashboard-api.test",
-                "C:\\projects\\dashboard-api",
-                "127.0.0.1:3000",
-            ),
-        ];
+        let default_sites = vec![];
 
         Ok(Self {
             supervisor,

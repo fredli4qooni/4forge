@@ -55,16 +55,7 @@
 
       <div class="space-y-4 text-xs">
         <div>
-          <div class="flex justify-between items-center mb-1">
-            <label for="site-path" class="text-slate-300 font-medium">Project Folder Path</label>
-            <button
-              type="button"
-              onclick={() => onPathChange("C:\\4forge\\projects\\new-laravel-app")}
-              class="text-cyan-400 hover:text-cyan-300 text-[11px] underline"
-            >
-              Sample Folder
-            </button>
-          </div>
+          <label for="site-path" class="block text-slate-300 font-medium mb-1">Project Folder Path</label>
           <input
             id="site-path"
             type="text"

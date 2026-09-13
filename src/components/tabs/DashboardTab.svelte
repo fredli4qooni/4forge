@@ -258,7 +258,14 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-800/70 text-slate-300">
-          {#each sites as site}
+          {#if sites.length === 0}
+            <tr>
+              <td colspan="5" class="px-5 py-8 text-center text-slate-500 italic">
+                No virtual hosts or projects configured yet. Click "Add Project" or "Scan Workspace" to register a project.
+              </td>
+            </tr>
+          {:else}
+            {#each sites as site}
             <tr class="hover:bg-slate-800/30 transition-colors">
               <td class="px-5 py-3.5 font-medium text-white flex items-center gap-2">
                 <Globe class="w-3.5 h-3.5 text-cyan-400" />
@@ -303,6 +310,7 @@
               </td>
             </tr>
           {/each}
+        {/if}
         </tbody>
       </table>
     </div>
