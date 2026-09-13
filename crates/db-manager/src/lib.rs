@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod adminer;
 pub mod config;
 pub mod driver;
 pub mod manager;
@@ -19,6 +20,7 @@ pub mod mariadb;
 pub mod postgres;
 pub mod sqlite;
 
+pub use adminer::{AdminerManager, DatabaseLaunchResult};
 pub use config::{MariaDbConfig, PostgreSqlConfig};
 pub use driver::{DatabaseCommand, DatabaseDriver};
 pub use manager::DatabaseManager;

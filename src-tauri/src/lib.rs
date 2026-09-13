@@ -51,6 +51,8 @@ pub fn run() {
             commands::open_projects_folder,
             commands::open_system_terminal,
             commands::open_database_gui,
+            commands::launch_database_manager,
+            commands::open_adminer_in_browser,
             commands::open_service_config,
             commands::detect_project_framework,
             commands::scan_projects_directory,

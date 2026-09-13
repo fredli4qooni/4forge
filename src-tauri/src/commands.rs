@@ -598,3 +598,55 @@ pub async fn auto_register_detected_project(
 
     Ok(dto)
 }
+
+#[tauri::command]
+pub async fn launch_database_manager(
+    state: State<'_, AppState>,
+) -> Result<forge_db_manager::DatabaseLaunchResult, String> {
+    let tools_dir = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+        std::path::PathBuf::from(appdata)
+            .join("4Forge")
+            .join("tools")
+    } else {
+        std::path::PathBuf::from("C:\\4forge\\tools")
+    };
+
+    let svcs = state.supervisor.list_services().await;
+    let web_port = svcs
+        .iter()
+        .find(|s| s.name == "caddy")
+        .and_then(|s| s.port)
+        .unwrap_or(80);
+
+    forge_db_manager::AdminerManager::launch_database_ui(
+        &tools_dir,
+        web_port,
+        "127.0.0.1",
+        3306,
+        "root",
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn open_adminer_in_browser(state: State<'_, AppState>) -> Result<String, String> {
+    let tools_dir = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+        std::path::PathBuf::from(appdata)
+            .join("4Forge")
+            .join("tools")
+    } else {
+        std::path::PathBuf::from("C:\\4forge\\tools")
+    };
+    let _ = forge_db_manager::AdminerManager::ensure_adminer_script(&tools_dir);
+
+    let svcs = state.supervisor.list_services().await;
+    let web_port = svcs
+        .iter()
+        .find(|s| s.name == "caddy")
+        .and_then(|s| s.port)
+        .unwrap_or(80);
+
+    let url = forge_db_manager::AdminerManager::get_adminer_url(web_port);
+    forge_supervisor::NativeShell::open_browser(&url).map_err(|e| e.to_string())?;
+    Ok(url)
+}

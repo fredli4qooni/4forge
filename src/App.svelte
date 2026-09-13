@@ -90,6 +90,12 @@
     target: string;
   }
 
+  interface DatabaseLaunchResult {
+    launched_type: string;
+    client_name: string;
+    url_or_path: string;
+  }
+
   let showAddSiteModal = $state(false);
   let newSiteDomain = $state("");
   let newSitePath = $state("");
@@ -266,13 +272,51 @@
   async function openDatabaseAction(): Promise<void> {
     const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
     if (hasTauri) {
-      const launched = await invokeTauri<boolean>("open_database_gui");
-      if (launched) {
-        showToast("Database client launched successfully!");
-        return;
+      const result = await invokeTauri<DatabaseLaunchResult>("launch_database_manager");
+      if (result) {
+        if (result.launched_type === "native") {
+          showToast(`Native database client launched: ${result.client_name}`);
+          return;
+        } else if (result.launched_type === "web_adminer") {
+          showToast("Opened built-in Adminer database manager in browser");
+          return;
+        }
       }
     }
     showDatabaseModal = true;
+  }
+
+  async function openWebAdminerExplicit(): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      try {
+        const url = await invokeTauri<string>("open_adminer_in_browser");
+        showToast(`Adminer database manager opened: ${url}`);
+        showDatabaseModal = false;
+        return;
+      } catch (err: any) {
+        showToast(`Failed to open Adminer: ${err}`);
+      }
+    } else {
+      window.open("http://localhost/4forge-adminer/index.php", "_blank");
+      showToast("Adminer opened in new tab (simulated)");
+    }
+  }
+
+  async function launchNativeClientExplicit(): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      const launched = await invokeTauri<boolean>("open_database_gui");
+      if (launched) {
+        showToast("Desktop database client launched successfully!");
+        showDatabaseModal = false;
+        return;
+      } else {
+        showToast("No native desktop client (HeidiSQL, DBeaver, TablePlus) found.");
+      }
+    } else {
+      showToast("Native database client simulated");
+    }
   }
 
   async function openServiceConfig(serviceId: string): Promise<void> {
@@ -1758,12 +1802,29 @@
           </div>
         </div>
 
-        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-300 space-y-1">
-          <p class="font-semibold text-white">Tip for HeidiSQL, DBeaver & VS Code:</p>
-          <p>Connect using Host <code class="text-cyan-400 font-mono">127.0.0.1</code>, Port <code class="text-emerald-400 font-mono">3306</code>, and User <code class="text-slate-200 font-mono">root</code> without password.</p>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button
+            onclick={openWebAdminerExplicit}
+            class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white text-xs font-semibold transition-colors shadow-sm"
+          >
+            <Globe class="w-4 h-4 text-indigo-400" />
+            Open Adminer.php
+          </button>
+          <button
+            onclick={launchNativeClientExplicit}
+            class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-white text-xs font-semibold transition-colors shadow-sm"
+          >
+            <ExternalLink class="w-4 h-4 text-emerald-400" />
+            Launch Desktop App
+          </button>
         </div>
 
-        <div class="flex items-center justify-end gap-3 pt-2">
+        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-300 space-y-1">
+          <p class="font-semibold text-white">Integrated Zero-Setup Database Manager:</p>
+          <p>4Forge bundles a dark-themed Adminer SQL console ready out-of-the-box, and automatically detects HeidiSQL or DBeaver if installed on your system.</p>
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-2">
           <button
             onclick={() => {
               if (navigator.clipboard) {
@@ -1771,15 +1832,15 @@
                 showToast("Connection string copied to clipboard!");
               }
             }}
-            class="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+            class="px-3.5 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
           >
             Copy URL
           </button>
           <button
             onclick={() => (showDatabaseModal = false)}
-            class="px-4 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-lg shadow-emerald-500/20 transition-all"
+            class="px-5 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-lg shadow-emerald-500/20 transition-all"
           >
-            Done
+            Close
           </button>
         </div>
       </div>
