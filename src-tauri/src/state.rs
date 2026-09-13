@@ -37,13 +37,50 @@ impl AppState {
         let runtime_manager = Arc::new(RwLock::new(RuntimeManager::new(runtimes_root)));
         let pty_manager = Arc::new(PtySessionManager::new());
 
-        let default_sites = vec![];
+        let sites_path = PathBuf::from("C:\\4forge\\config\\sites.json");
+        let mut loaded_sites: Vec<VirtualHostConfig> = if sites_path.is_file() {
+            std::fs::read_to_string(&sites_path)
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+
+        let projects_dir = PathBuf::from("C:\\4forge\\projects");
+        if projects_dir.is_dir() {
+            let detected = forge_caddy_config::ProjectSignatureDetector::scan_directory(
+                &projects_dir,
+                Some("test"),
+            );
+            for p in detected {
+                let vhost = p.to_virtual_host_config();
+                if !loaded_sites.iter().any(|s| s.domain == vhost.domain) {
+                    loaded_sites.push(vhost);
+                }
+            }
+        }
+
+        if !loaded_sites.is_empty() {
+            if let Some(parent) = sites_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            if let Ok(json) = serde_json::to_string_pretty(&loaded_sites) {
+                let _ = std::fs::write(&sites_path, json);
+            }
+            let all_domains: Vec<String> = loaded_sites.iter().map(|s| s.domain.clone()).collect();
+            let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+            let caddyfile_content =
+                forge_caddy_config::CaddyConfigGenerator::generate_caddyfile(&loaded_sites);
+            let caddyfile_path = PathBuf::from("C:\\4forge\\config\\Caddyfile");
+            let _ = std::fs::write(&caddyfile_path, caddyfile_content);
+        }
 
         Ok(Self {
             supervisor,
             db_manager,
             runtime_manager,
-            sites: Arc::new(RwLock::new(default_sites)),
+            sites: Arc::new(RwLock::new(loaded_sites)),
             pty_manager,
         })
     }

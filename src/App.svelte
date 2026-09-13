@@ -197,6 +197,7 @@
 
   onMount(() => {
     fetchBackendState(true);
+    scanWorkspaceProjects(true);
     const backendTimer = setInterval(() => fetchBackendState(false), 2500);
     const uptimeTimer = setInterval(() => {
       if (runningCount > 0) uptimeSeconds += 1;
@@ -303,14 +304,14 @@
     }
   }
 
-  async function scanWorkspaceProjects(): Promise<void> {
+  async function scanWorkspaceProjects(silent: boolean = false): Promise<void> {
     isScanningWorkspace = true;
     const list = await scanWorkspace(domainSuffix);
     if (list && list.length > 0) {
       for (const p of list) await autoRegisterProject(p);
       await fetchBackendState();
-      showToast(`Auto-scanned & registered ${list.length} virtual hosts from workspace!`);
-    } else {
+      if (!silent) showToast(`Auto-scanned & registered ${list.length} virtual hosts from workspace!`);
+    } else if (!silent) {
       showToast("No new project directories found in C:\\4forge\\projects");
     }
     isScanningWorkspace = false;

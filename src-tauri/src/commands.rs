@@ -179,7 +179,18 @@ async fn sync_caddyfile(sites: &[forge_caddy_config::VirtualHostConfig]) {
     let _ = std::fs::write(&caddyfile_path, caddyfile_content);
 }
 
+fn save_sites_to_disk(sites: &[forge_caddy_config::VirtualHostConfig]) {
+    let sites_path = std::path::PathBuf::from("C:\\4forge\\config\\sites.json");
+    if let Some(parent) = sites_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    if let Ok(json) = serde_json::to_string_pretty(sites) {
+        let _ = std::fs::write(&sites_path, json);
+    }
+}
+
 async fn sync_caddyfile_and_reload(sites: &[forge_caddy_config::VirtualHostConfig]) {
+    save_sites_to_disk(sites);
     sync_caddyfile(sites).await;
     let caddyfile_path = std::path::PathBuf::from("C:\\4forge\\config\\Caddyfile");
     let caddy_bin = std::path::PathBuf::from("C:\\4forge\\runtimes\\caddy\\caddy.exe");
