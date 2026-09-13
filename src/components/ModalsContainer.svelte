@@ -1,8 +1,9 @@
 <script lang="ts">
-  import type { DetectedProject, UpdateCheck } from "../types";
+  import type { DetectedProject, SiteItem, UpdateCheck } from "../types";
   import AddSiteModal from "./modals/AddSiteModal.svelte";
   import CreateProjectModal, { type ScaffoldRequest } from "./modals/CreateProjectModal.svelte";
   import DatabaseModal from "./modals/DatabaseModal.svelte";
+  import DeleteSiteModal from "./modals/DeleteSiteModal.svelte";
   import UpdateModal from "./modals/UpdateModal.svelte";
   import SettingsModal from "./modals/SettingsModal.svelte";
   import Toast from "./Toast.svelte";
@@ -11,6 +12,8 @@
     toastMessage,
     showAddSiteModal,
     showCreateProjectModal = false,
+    showDeleteSiteModal = false,
+    siteToDelete = null,
     newSitePath,
     newSiteDomain,
     newSiteType,
@@ -24,6 +27,8 @@
     isCheckingUpdate,
     onCloseAddSite,
     onCloseCreateProject,
+    onCloseDeleteSite,
+    onConfirmDeleteSite,
     onRunInTerminal,
     onScaffoldGui,
     onPathChange,
@@ -45,6 +50,8 @@
     toastMessage: string | null;
     showAddSiteModal: boolean;
     showCreateProjectModal?: boolean;
+    showDeleteSiteModal?: boolean;
+    siteToDelete?: SiteItem | null;
     newSitePath: string;
     newSiteDomain: string;
     newSiteType: string;
@@ -58,6 +65,8 @@
     isCheckingUpdate: boolean;
     onCloseAddSite: () => void;
     onCloseCreateProject?: () => void;
+    onCloseDeleteSite?: () => void;
+    onConfirmDeleteSite?: (deleteFiles: boolean) => void;
     onRunInTerminal?: (command: string, cwd?: string) => void;
     onScaffoldGui?: (req: ScaffoldRequest) => void;
     onPathChange: (p: string) => void;
@@ -103,6 +112,13 @@
   {onTypeChange}
   {onTargetChange}
   onSubmit={onSubmitAddSite}
+/>
+
+<DeleteSiteModal
+  show={showDeleteSiteModal}
+  site={siteToDelete}
+  onClose={() => onCloseDeleteSite?.()}
+  onConfirm={(del) => onConfirmDeleteSite?.(del)}
 />
 
 <DatabaseModal

@@ -160,8 +160,8 @@ export async function addVirtualHost(domain: string, rootDir: string, backendTyp
   await invokeTauri("add_site", { domain, rootDir, backendType, target });
 }
 
-export async function deleteVirtualHost(domain: string): Promise<void> {
-  await invokeTauri("delete_site", { domain });
+export async function deleteVirtualHost(domain: string, deleteFiles: boolean = false): Promise<void> {
+  await invokeTauri("delete_site", { domain, deleteFiles });
 }
 
 export async function updateServicePort(id: string, newPort: number): Promise<void> {

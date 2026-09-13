@@ -356,13 +356,45 @@ pub async fn add_site(
 }
 
 #[tauri::command]
-pub async fn delete_site(state: State<'_, AppState>, domain: String) -> Result<(), String> {
+pub async fn delete_site(
+    state: State<'_, AppState>,
+    domain: String,
+    delete_files: Option<bool>,
+) -> Result<(), String> {
     let mut sites = state.sites.write().await;
+    let target_site = sites.iter().find(|s| s.domain == domain).cloned();
     sites.retain(|s| s.domain != domain);
 
     let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
     let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
     sync_caddyfile_and_reload(&sites).await;
+
+    if delete_files.unwrap_or(false) {
+        let candidate_dir = if let Some(site) = target_site {
+            let mut p = std::path::PathBuf::from(&site.root_dir);
+            if p.ends_with("public") {
+                if let Some(parent) = p.parent() {
+                    p = parent.to_path_buf();
+                }
+            }
+            Some(p)
+        } else {
+            let clean_slug = domain.split('.').next().unwrap_or(&domain);
+            let p = std::path::PathBuf::from("C:\\4forge\\projects").join(clean_slug);
+            if p.is_dir() {
+                Some(p)
+            } else {
+                None
+            }
+        };
+
+        if let Some(dir) = candidate_dir {
+            let projects_root = std::path::PathBuf::from("C:\\4forge\\projects");
+            if dir.starts_with(&projects_root) && dir != projects_root && dir.exists() {
+                let _ = std::fs::remove_dir_all(&dir);
+            }
+        }
+    }
 
     Ok(())
 }

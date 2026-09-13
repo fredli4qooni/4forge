@@ -54,7 +54,7 @@
   let portConflicts = $state<PortCheckResult[]>([]), dismissedConflictBanner = $state(false);
   let showAddSiteModal = $state(false), showCreateProjectModal = $state(false), newSiteDomain = $state(""), newSitePath = $state(""), newSiteType = $state("fastcgi"), newSiteTarget = $state("127.0.0.1:9000");
   let detectedProjectItem = $state<DetectedProject | null>(null), domainSuffix = $state("test"), isScanningWorkspace = $state(false), missingHosts = $state<string[]>([]), isSyncingHosts = $state(false);
-  let showUpdateModal = $state(false), isCheckingUpdate = $state(false), updateStatus = $state<UpdateCheck | null>(null), showDatabaseModal = $state(false);
+  let showUpdateModal = $state(false), isCheckingUpdate = $state(false), updateStatus = $state<UpdateCheck | null>(null), showDatabaseModal = $state(false), showDeleteModal = $state(false), siteToDelete = $state<SiteItem | null>(null);
   let logFilter = $state<string>("all"), logSearch = $state("");
   let services = $state<ServiceItem[]>(INITIAL_SERVICES), sites = $state<SiteItem[]>(INITIAL_SITES), logs = $state<LogMessage[]>(INITIAL_LOGS);
   let runningCount = $derived(services.filter((s) => s.status === "running").length);
@@ -167,7 +167,8 @@
   function handleLaunchIntegratedTerminal(): void { activeTerminalCwd = "C:\\4forge\\projects"; activeTab = "terminal"; }
   async function handleLaunchTerminal(): Promise<void> { await launchTerminal(); showToast("Launching External Windows Terminal..."); }
   async function handleOpenVsCode(path: string): Promise<void> { await openVsCode(path); showToast("Opening project in VS Code..."); }
-  async function handleDeleteSite(domain: string): Promise<void> { await deleteVirtualHost(domain); await fetchBackendState(); showToast(`Site ${domain} removed`); }
+  function promptDeleteSite(d: string): void { siteToDelete = sites.find((s) => s.domain === d) || { domain: d, path: `C:\\4forge\\projects\\${d.split('.')[0]}`, runtime: "PHP 8.3", ssl: true, backend_type: "fastcgi", target: "127.0.0.1:9000" }; showDeleteModal = true; }
+  async function handleConfirmDelete(delFiles: boolean): Promise<void> { if (!siteToDelete) return; const d = siteToDelete.domain; showDeleteModal = false; await deleteVirtualHost(d, delFiles); await fetchBackendState(); showToast(delFiles ? `Project ${d} and files deleted` : `Virtual host ${d} removed`); siteToDelete = null; }
   async function openServiceConfig(serviceId: string): Promise<void> { const res = await openConfig(serviceId); showToast(res ? `Opened config for ${serviceId} in Notepad (${res})` : `Opened config for ${serviceId}`); }
   function openServiceLogs(serviceId: string): void { logFilter = serviceId; activeTab = "logs"; showToast(`Showing live logs for ${serviceId}`); }
 
@@ -416,7 +417,7 @@
           onOpenSiteFolder={handleOpenFolder}
           onOpenProjectTerminal={handleOpenProjectTerminal}
           onOpenProjectInVsCode={handleOpenVsCode}
-          onDeleteSite={handleDeleteSite}
+          onDeleteSite={promptDeleteSite}
         />
       </div>
     {:else if activeTab === "runtimes"}
@@ -459,6 +460,10 @@
   {toastMessage}
   {showAddSiteModal}
   {showCreateProjectModal}
+  showDeleteSiteModal={showDeleteModal}
+  {siteToDelete}
+  onCloseDeleteSite={() => (showDeleteModal = false)}
+  onConfirmDeleteSite={handleConfirmDelete}
   {newSitePath}
   {newSiteDomain}
   {newSiteType}
@@ -484,15 +489,9 @@
   onOpenAdminer={openWebAdminerExplicit}
   onLaunchNative={launchNativeClientExplicit}
   onCreateDatabase={handleCreateDatabase}
-  onCopyUrl={() => {
-    navigator.clipboard?.writeText("http://localhost/4forge-adminer/index.php");
-    showToast("Adminer URL copied to clipboard!");
-  }}
+  onCopyUrl={() => { navigator.clipboard?.writeText("http://localhost/4forge-adminer/index.php"); showToast("Adminer URL copied to clipboard!"); }}
   onCloseUpdate={() => (showUpdateModal = false)}
   onCheckUpdates={checkUpdates}
-  onSaveDomainSuffix={(s: string) => {
-    domainSuffix = s;
-    showToast(`Default domain suffix updated to .${s}`);
-  }}
+  onSaveDomainSuffix={(s: string) => { domainSuffix = s; showToast(`Default domain suffix updated to .${s}`); }}
   onCloseSettings={() => (showSettingsModal = false)}
 />
