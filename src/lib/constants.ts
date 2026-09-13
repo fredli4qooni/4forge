@@ -1,5 +1,12 @@
 import { Database, Globe, Layers, Server, Zap } from "@lucide/svelte";
 import type { ServiceItem, SiteItem, LogMessage } from "../types";
+import caddyLogo from "../assets/logos/caddy-logo.svg";
+import mariaLogo from "../assets/logos/mysql-logo.svg";
+import postgresLogo from "../assets/logos/postgresql-logo.svg";
+import redisLogo from "../assets/logos/redis-logo.svg";
+import phpLogo from "../assets/logos/php-logo.svg";
+import nodeLogo from "../assets/logos/nodejs-logo.svg";
+import mongoLogo from "../assets/logos/mongo-logo.svg";
 
 export const INITIAL_SERVICES: ServiceItem[] = [
   {
@@ -10,6 +17,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "80, 443, 2019",
     status: "stopped",
     icon: Globe,
+    logo: caddyLogo,
   },
   {
     id: "mariadb",
@@ -19,6 +27,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "3306",
     status: "stopped",
     icon: Database,
+    logo: mariaLogo,
   },
   {
     id: "postgresql",
@@ -28,6 +37,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "5432",
     status: "stopped",
     icon: Database,
+    logo: postgresLogo,
   },
   {
     id: "redis",
@@ -37,6 +47,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "6379",
     status: "stopped",
     icon: Zap,
+    logo: redisLogo,
   },
   {
     id: "php",
@@ -46,6 +57,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "9000",
     status: "stopped",
     icon: Server,
+    logo: phpLogo,
   },
   {
     id: "node",
@@ -55,6 +67,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "Isolated",
     status: "running",
     icon: Layers,
+    logo: nodeLogo,
   },
   {
     id: "mongodb",
@@ -64,6 +77,7 @@ export const INITIAL_SERVICES: ServiceItem[] = [
     ports: "27017",
     status: "stopped",
     icon: Database,
+    logo: mongoLogo,
   },
 ];
 

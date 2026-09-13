@@ -8,7 +8,8 @@ export interface ServiceItem {
   ports: string;
   status: "stopped" | "starting" | "running" | "crashed";
   pid?: number;
-  icon: Component<any>;
+  icon?: Component<any>;
+  logo?: string;
 }
 
 export interface SiteItem {
