@@ -45,8 +45,8 @@
     </div>
   </div>
 
-  <div class="flex items-center gap-1.5">
-    {#each ["all", "caddy", "mariadb", "php"] as filter}
+  <div class="flex items-center gap-1.5 flex-wrap">
+    {#each ["all", "caddy", "mariadb", "postgresql", "redis", "php"] as filter}
       <button
         onclick={() => (logFilter = filter)}
         class="px-2.5 py-1 rounded-md text-xs font-medium uppercase tracking-wider transition-all {logFilter === filter

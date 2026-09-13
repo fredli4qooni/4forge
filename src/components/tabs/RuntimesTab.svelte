@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Server, Layers, Terminal, Activity } from "@lucide/svelte";
+  import { Server, Layers, Terminal, Activity, Settings } from "@lucide/svelte";
 
   let {
     activePhpVersion,
@@ -9,7 +9,8 @@
     onSelectPhpVersion,
     onSelectNodeVersion,
     onSelectPythonVersion,
-    onSelectRubyVersion
+    onSelectRubyVersion,
+    onOpenSettings,
   }: {
     activePhpVersion: string;
     activeNodeVersion: string;
@@ -19,6 +20,7 @@
     onSelectNodeVersion: (version: string) => void;
     onSelectPythonVersion: (version: string) => void;
     onSelectRubyVersion: (version: string) => void;
+    onOpenSettings?: () => void;
   } = $props();
 </script>
 
@@ -28,6 +30,16 @@
       <h2 class="text-lg font-bold text-slate-900">Polyglot Runtime Manager</h2>
       <p class="text-xs text-slate-500 mt-0.5">Switch runtime versions without restarting the system (mise model).</p>
     </div>
+    {#if onOpenSettings}
+      <button
+        onclick={onOpenSettings}
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium transition-all shadow-xs"
+        title="Runtime & Environment Preferences"
+      >
+        <Settings class="w-3.5 h-3.5 text-slate-500" />
+        <span>Settings</span>
+      </button>
+    {/if}
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
