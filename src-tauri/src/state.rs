@@ -194,13 +194,24 @@ pub fn is_runtime_installed(service_name: &str) -> bool {
 fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervisor::ProcessConfig> {
     let mut list = Vec::new();
 
+    let alt_runtimes_root = PathBuf::from("C:\\4forge\\runtimes");
     let caddy_bin = find_binary_in_path("caddy.exe")
         .or_else(|| {
             let p = runtimes_root.join("caddy").join("caddy.exe");
             if p.is_file() {
                 Some(p)
             } else {
-                None
+                let alt_p = alt_runtimes_root.join("caddy").join("caddy.exe");
+                if alt_p.is_file() {
+                    Some(alt_p)
+                } else {
+                    let bin_p = PathBuf::from("C:\\4forge\\bin\\caddy.exe");
+                    if bin_p.is_file() {
+                        Some(bin_p)
+                    } else {
+                        None
+                    }
+                }
             }
         })
         .unwrap_or_else(|| PathBuf::from("cmd.exe"));
