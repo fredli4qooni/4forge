@@ -9,6 +9,7 @@
     Plus,
     Scan,
     ScrollText,
+    Sparkles,
     Terminal,
     Zap,
   } from "@lucide/svelte";
@@ -38,6 +39,7 @@
     onOpenSiteFolder,
     onScanWorkspace,
     onOpenAddSite,
+    onOpenCreateProject,
     onCreateDatabase,
   }: {
     services: ServiceItem[];
@@ -63,6 +65,7 @@
     onOpenSiteFolder: (path: string) => void;
     onScanWorkspace: () => void;
     onOpenAddSite: () => void;
+    onOpenCreateProject?: () => void;
     onCreateDatabase: (dbName: string, engine?: string) => void;
   } = $props();
 
@@ -397,10 +400,20 @@
 
           <button
             onclick={onOpenAddSite}
-            class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium shadow-xs flex items-center gap-1 transition-colors"
+            class="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium shadow-xs flex items-center gap-1 transition-colors"
+            title="Link an existing folder"
           >
-            <Plus class="w-3 h-3 text-slate-500" />
-            <span>Add project</span>
+            <FolderOpen class="w-3 h-3 text-slate-500" />
+            <span>Link</span>
+          </button>
+
+          <button
+            onclick={() => onOpenCreateProject?.()}
+            class="px-2 py-1 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs flex items-center gap-1 transition-colors"
+            title="Create new project from template"
+          >
+            <Sparkles class="w-3 h-3" />
+            <span>New</span>
           </button>
         </div>
       </div>
@@ -412,14 +425,22 @@
           </div>
           <div>
             <h3 class="font-bold text-xs text-slate-900">Start your first project</h3>
-            <p class="text-[11px] text-slate-500 mt-0.5">Add a folder or scan your workspace to register one.</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Scaffold from a template or link an existing folder.</p>
           </div>
-          <button
-            onclick={onOpenAddSite}
-            class="px-3.5 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs transition-colors inline-block"
-          >
-            Add project
-          </button>
+          <div class="flex items-center justify-center gap-2">
+            <button
+              onclick={() => onOpenCreateProject?.()}
+              class="px-3.5 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs transition-colors inline-block"
+            >
+              + New Project
+            </button>
+            <button
+              onclick={onOpenAddSite}
+              class="px-3.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium shadow-xs transition-colors inline-block"
+            >
+              Link Folder
+            </button>
+          </div>
         </div>
       {:else}
         <div class="rounded-xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-xs overflow-hidden max-h-48 overflow-y-auto">

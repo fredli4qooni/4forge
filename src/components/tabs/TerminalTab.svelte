@@ -21,10 +21,14 @@
 
   let {
     initialCwd = "C:\\4forge\\projects",
+    initialCommand = "",
     onOpenExternal,
+    onCommandExecuted,
   }: {
     initialCwd?: string;
+    initialCommand?: string;
     onOpenExternal?: () => void;
+    onCommandExecuted?: () => void;
   } = $props();
 
   let terminalContainer = $state<HTMLDivElement | null>(null);
@@ -35,6 +39,15 @@
   let isSpawning = $state(false);
   let unlistenFn: (() => void) | null = null;
   let resizeObserver: ResizeObserver | null = null;
+
+  $effect(() => {
+    if (initialCommand && sessionId && !isSpawning) {
+      setTimeout(() => {
+        writeTerminal(sessionId, `${initialCommand}\r`);
+        if (onCommandExecuted) onCommandExecuted();
+      }, 300);
+    }
+  });
 
   async function startTerminalSession(cwdToUse?: string) {
     if (sessionId) {
@@ -53,6 +66,14 @@
     try {
       const id = await spawnTerminal(path, cols, rows);
       sessionId = id;
+      if (initialCommand) {
+        setTimeout(() => {
+          if (sessionId) {
+            writeTerminal(sessionId, `${initialCommand}\r`);
+            if (onCommandExecuted) onCommandExecuted();
+          }
+        }, 600);
+      }
     } catch (err: any) {
       if (term) {
         term.writeln(`\x1b[31mFailed to start 4Forge terminal: ${err?.message || err}\x1b[0m`);

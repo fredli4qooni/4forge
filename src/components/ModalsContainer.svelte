@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DetectedProject, UpdateCheck } from "../types";
   import AddSiteModal from "./modals/AddSiteModal.svelte";
+  import CreateProjectModal, { type ScaffoldRequest } from "./modals/CreateProjectModal.svelte";
   import DatabaseModal from "./modals/DatabaseModal.svelte";
   import UpdateModal from "./modals/UpdateModal.svelte";
   import SettingsModal from "./modals/SettingsModal.svelte";
@@ -9,6 +10,7 @@
   let {
     toastMessage,
     showAddSiteModal,
+    showCreateProjectModal = false,
     newSitePath,
     newSiteDomain,
     newSiteType,
@@ -21,6 +23,9 @@
     updateStatus,
     isCheckingUpdate,
     onCloseAddSite,
+    onCloseCreateProject,
+    onRunInTerminal,
+    onScaffoldGui,
     onPathChange,
     onDomainChange,
     onSuffixChange,
@@ -39,6 +44,7 @@
   }: {
     toastMessage: string | null;
     showAddSiteModal: boolean;
+    showCreateProjectModal?: boolean;
     newSitePath: string;
     newSiteDomain: string;
     newSiteType: string;
@@ -51,6 +57,9 @@
     updateStatus: UpdateCheck | null;
     isCheckingUpdate: boolean;
     onCloseAddSite: () => void;
+    onCloseCreateProject?: () => void;
+    onRunInTerminal?: (command: string, cwd?: string) => void;
+    onScaffoldGui?: (req: ScaffoldRequest) => void;
     onPathChange: (p: string) => void;
     onDomainChange: (d: string) => void;
     onSuffixChange: (s: string) => void;
@@ -70,6 +79,14 @@
 </script>
 
 <Toast message={toastMessage} />
+
+<CreateProjectModal
+  show={showCreateProjectModal}
+  {domainSuffix}
+  onClose={() => onCloseCreateProject?.()}
+  onRunInTerminal={(cmd, cwd) => onRunInTerminal?.(cmd, cwd)}
+  onScaffoldGui={(req) => onScaffoldGui?.(req)}
+/>
 
 <AddSiteModal
   show={showAddSiteModal}

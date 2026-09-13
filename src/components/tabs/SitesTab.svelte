@@ -9,6 +9,7 @@
     RefreshCw,
     Scan,
     ShieldCheck,
+    Sparkles,
     Terminal,
     Trash2,
   } from "@lucide/svelte";
@@ -21,6 +22,7 @@
     isSyncingHosts,
     onScanWorkspace,
     onOpenAddSite,
+    onOpenCreateProject,
     onSyncHosts,
     onOpenSiteBrowser,
     onOpenSiteFolder,
@@ -34,6 +36,7 @@
     isSyncingHosts: boolean;
     onScanWorkspace: () => void;
     onOpenAddSite: () => void;
+    onOpenCreateProject?: () => void;
     onSyncHosts: () => void;
     onOpenSiteBrowser: (d: string) => void;
     onOpenSiteFolder: (p: string) => void;
@@ -61,10 +64,18 @@
       </button>
       <button
         onclick={onOpenAddSite}
-        class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white flex items-center gap-1.5 font-semibold text-xs transition-all shadow-xs"
+        class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-1.5 font-medium text-xs transition-all shadow-xs"
+        title="Link an existing project folder from disk"
       >
-        <Plus class="w-3.5 h-3.5" />
-        <span>+ Add Project</span>
+        <FolderOpen class="w-3.5 h-3.5 text-slate-500" />
+        <span>Link Folder</span>
+      </button>
+      <button
+        onclick={() => onOpenCreateProject?.()}
+        class="px-3 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white flex items-center gap-1.5 font-semibold text-xs transition-all shadow-xs"
+      >
+        <Sparkles class="w-3.5 h-3.5" />
+        <span>+ New Project</span>
       </button>
     </div>
   </div>

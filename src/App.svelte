@@ -47,11 +47,12 @@
   import PortConflictBanner from "./components/PortConflictBanner.svelte";
   import TopNav from "./components/TopNav.svelte";
   import ModalsContainer from "./components/ModalsContainer.svelte";
+  import type { ScaffoldRequest } from "./components/modals/CreateProjectModal.svelte";
 
   let activeTab = $state<TabType>("cockpit"), showSettingsModal = $state(false), allRunning = $state(false), isLoading = $state(false);
-  let toastMessage = $state<string | null>(null), uptimeSeconds = $state(0), activeTerminalCwd = $state("C:\\4forge\\projects");
+  let toastMessage = $state<string | null>(null), uptimeSeconds = $state(0), activeTerminalCwd = $state("C:\\4forge\\projects"), activeTerminalCommand = $state("");
   let portConflicts = $state<PortCheckResult[]>([]), dismissedConflictBanner = $state(false);
-  let showAddSiteModal = $state(false), newSiteDomain = $state(""), newSitePath = $state(""), newSiteType = $state("fastcgi"), newSiteTarget = $state("127.0.0.1:9000");
+  let showAddSiteModal = $state(false), showCreateProjectModal = $state(false), newSiteDomain = $state(""), newSitePath = $state(""), newSiteType = $state("fastcgi"), newSiteTarget = $state("127.0.0.1:9000");
   let detectedProjectItem = $state<DetectedProject | null>(null), domainSuffix = $state("test"), isScanningWorkspace = $state(false), missingHosts = $state<string[]>([]), isSyncingHosts = $state(false);
   let showUpdateModal = $state(false), isCheckingUpdate = $state(false), updateStatus = $state<UpdateCheck | null>(null), showDatabaseModal = $state(false);
   let logFilter = $state<string>("all"), logSearch = $state("");
@@ -161,47 +162,37 @@
     }
   }
 
-  async function handleOpenFolder(p?: string): Promise<void> {
-    await openProjectsFolder(p);
-    showToast(p ? "Opening folder in Windows Explorer..." : "Opening projects directory...");
-  }
+  async function handleOpenFolder(p?: string): Promise<void> { await openProjectsFolder(p); showToast(p ? "Opening folder in Windows Explorer..." : "Opening projects directory..."); }
+  function handleOpenProjectTerminal(path: string): void { activeTerminalCwd = path; activeTab = "terminal"; showToast(`Opened 4Forge Dev Shell in ${path}`); }
+  function handleLaunchIntegratedTerminal(): void { activeTerminalCwd = "C:\\4forge\\projects"; activeTab = "terminal"; }
+  async function handleLaunchTerminal(): Promise<void> { await launchTerminal(); showToast("Launching External Windows Terminal..."); }
+  async function handleOpenVsCode(path: string): Promise<void> { await openVsCode(path); showToast("Opening project in VS Code..."); }
+  async function handleDeleteSite(domain: string): Promise<void> { await deleteVirtualHost(domain); await fetchBackendState(); showToast(`Site ${domain} removed`); }
+  async function openServiceConfig(serviceId: string): Promise<void> { const res = await openConfig(serviceId); showToast(res ? `Opened config for ${serviceId} in Notepad (${res})` : `Opened config for ${serviceId}`); }
+  function openServiceLogs(serviceId: string): void { logFilter = serviceId; activeTab = "logs"; showToast(`Showing live logs for ${serviceId}`); }
 
-  function handleOpenProjectTerminal(path: string): void {
-    activeTerminalCwd = path;
+  function handleOpenTerminalWithCommand(cmd: string, cwd?: string): void {
+    activeTerminalCwd = cwd || "C:\\4forge\\projects";
+    activeTerminalCommand = cmd;
     activeTab = "terminal";
-    showToast(`Opened 4Forge Dev Shell in ${path}`);
+    showToast(`Opening 4Forge Terminal for '${cmd.slice(0, 32)}...'`);
   }
 
-  function handleLaunchIntegratedTerminal(): void {
-    activeTerminalCwd = "C:\\4forge\\projects";
-    activeTab = "terminal";
-  }
-
-  async function handleLaunchTerminal(): Promise<void> {
-    await launchTerminal();
-    showToast("Launching External Windows Terminal...");
-  }
-
-  async function handleOpenVsCode(path: string): Promise<void> {
-    await openVsCode(path);
-    showToast("Opening project in VS Code...");
-  }
-
-  async function handleDeleteSite(domain: string): Promise<void> {
-    await deleteVirtualHost(domain);
-    await fetchBackendState();
-    showToast(`Site ${domain} removed`);
-  }
-
-  async function openServiceConfig(serviceId: string): Promise<void> {
-    const res = await openConfig(serviceId);
-    showToast(res ? `Opened config for ${serviceId} in Notepad (${res})` : `Opened config for ${serviceId}`);
-  }
-
-  function openServiceLogs(serviceId: string): void {
-    logFilter = serviceId;
-    activeTab = "logs";
-    showToast(`Showing live logs for ${serviceId}`);
+  async function handleScaffoldGui(req: ScaffoldRequest): Promise<void> {
+    showToast(`Scaffolding ${req.template.toUpperCase()} project '${req.projectName}'...`);
+    if (req.createDatabase) {
+      try {
+        await createDb(req.databaseName, "mariadb");
+        showToast(`Created database '${req.databaseName}' in MariaDB`);
+      } catch (e) {}
+    }
+    if (req.autoVhost) {
+      try {
+        const webRoot = `${req.targetPath}\\public`;
+        await addVirtualHost(req.domain, webRoot, "fastcgi", "127.0.0.1:9000");
+      } catch (e) {}
+    }
+    handleOpenTerminalWithCommand(req.command, "C:\\4forge\\projects");
   }
 
   onMount(() => {
@@ -397,6 +388,7 @@
         onOpenSiteFolder={handleOpenFolder}
         onScanWorkspace={scanWorkspaceProjects}
         onOpenAddSite={() => (showAddSiteModal = true)}
+        onOpenCreateProject={() => (showCreateProjectModal = true)}
         onCreateDatabase={handleCreateDatabase}
       />
     {:else if activeTab === "sites"}
@@ -408,6 +400,7 @@
           {isSyncingHosts}
           onScanWorkspace={scanWorkspaceProjects}
           onOpenAddSite={() => (showAddSiteModal = true)}
+          onOpenCreateProject={() => (showCreateProjectModal = true)}
           onSyncHosts={syncHostsNow}
           onOpenSiteBrowser={openSiteBrowser}
           onOpenSiteFolder={handleOpenFolder}
@@ -443,6 +436,8 @@
       <div class="w-full p-5 lg:px-8 lg:py-6 h-[calc(100vh-56px)] flex flex-col">
         <TerminalTab
           initialCwd={activeTerminalCwd}
+          initialCommand={activeTerminalCommand}
+          onCommandExecuted={() => (activeTerminalCommand = "")}
           onOpenExternal={handleLaunchTerminal}
         />
       </div>
@@ -453,6 +448,7 @@
 <ModalsContainer
   {toastMessage}
   {showAddSiteModal}
+  {showCreateProjectModal}
   {newSitePath}
   {newSiteDomain}
   {newSiteType}
@@ -465,6 +461,9 @@
   {updateStatus}
   {isCheckingUpdate}
   onCloseAddSite={() => (showAddSiteModal = false)}
+  onCloseCreateProject={() => (showCreateProjectModal = false)}
+  onRunInTerminal={handleOpenTerminalWithCommand}
+  onScaffoldGui={handleScaffoldGui}
   onPathChange={(p: string) => { newSitePath = p; detectPathFramework(p); }}
   onDomainChange={(d: string) => (newSiteDomain = d)}
   onSuffixChange={(s: string) => { domainSuffix = s; detectPathFramework(newSitePath); }}
