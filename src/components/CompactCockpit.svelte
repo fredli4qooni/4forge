@@ -211,37 +211,37 @@
 
     <div class="space-y-1.5 shrink-0">
       <h2 class="text-xs font-semibold text-slate-900">Quick access</h2>
-      <div class="rounded-xl border border-slate-200 bg-white grid grid-cols-4 divide-x divide-slate-100 shadow-xs overflow-hidden">
+      <div class="grid grid-cols-4 gap-2">
         <button
           onclick={onOpenWeb}
-          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
+          class="rounded-xl border border-slate-200 bg-white p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 shadow-xs transition-all cursor-pointer group"
         >
-          <Globe class="w-4 h-4 text-slate-700" />
-          <span class="text-xs font-medium text-slate-700">Web</span>
+          <Globe class="w-4 h-4 text-slate-600 group-hover:text-[#94380C] transition-colors" />
+          <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Web</span>
         </button>
 
         <button
           onclick={onOpenDatabase}
-          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
+          class="rounded-xl border border-slate-200 bg-white p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 shadow-xs transition-all cursor-pointer group"
         >
-          <Database class="w-4 h-4 text-slate-700" />
-          <span class="text-xs font-medium text-slate-700">Database</span>
+          <Database class="w-4 h-4 text-slate-600 group-hover:text-[#94380C] transition-colors" />
+          <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Database</span>
         </button>
 
         <button
           onclick={onOpenTerminal}
-          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
+          class="rounded-xl border border-slate-200 bg-white p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 shadow-xs transition-all cursor-pointer group"
         >
-          <Terminal class="w-4 h-4 text-slate-700" />
-          <span class="text-xs font-medium text-slate-700">Terminal</span>
+          <Terminal class="w-4 h-4 text-slate-600 group-hover:text-[#94380C] transition-colors" />
+          <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Terminal</span>
         </button>
 
         <button
           onclick={onOpenProjects}
-          class="p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors"
+          class="rounded-xl border border-slate-200 bg-white p-3 flex flex-col items-center justify-center gap-1.5 hover:bg-slate-50 hover:border-slate-300 shadow-xs transition-all cursor-pointer group"
         >
-          <FolderOpen class="w-4 h-4 text-slate-700" />
-          <span class="text-xs font-medium text-slate-700">Root</span>
+          <FolderOpen class="w-4 h-4 text-slate-600 group-hover:text-[#94380C] transition-colors" />
+          <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">Root</span>
         </button>
       </div>
     </div>
