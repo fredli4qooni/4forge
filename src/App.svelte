@@ -54,10 +54,8 @@
   let isLoading = $state(false);
   let toastMessage = $state<string | null>(null);
   let uptimeSeconds = $state(0);
-
   let portConflicts = $state<PortCheckResult[]>([]);
   let dismissedConflictBanner = $state(false);
-
   let showAddSiteModal = $state(false);
   let newSiteDomain = $state("");
   let newSitePath = $state("");
@@ -68,22 +66,17 @@
   let isScanningWorkspace = $state(false);
   let missingHosts = $state<string[]>([]);
   let isSyncingHosts = $state(false);
-
   let showUpdateModal = $state(false);
   let isCheckingUpdate = $state(false);
   let updateStatus = $state<UpdateCheck | null>(null);
   let showDatabaseModal = $state(false);
-
   let logFilter = $state<string>("all");
   let logSearch = $state("");
-
   let services = $state<ServiceItem[]>(INITIAL_SERVICES);
   let sites = $state<SiteItem[]>(INITIAL_SITES);
   let logs = $state<LogMessage[]>(INITIAL_LOGS);
-
   let runningCount = $derived(services.filter((s) => s.status === "running").length);
   let stoppedCount = $derived(services.filter((s) => s.status !== "running").length);
-
   let activePhpVersion = $state("8.3.16");
   let activeNodeVersion = $state("22.14.0");
   let activePythonVersion = $state("3.12.9");
@@ -121,35 +114,33 @@
   }
 
   async function openDatabaseAction(engine?: string): Promise<void> {
-    const eng = (engine || "mariadb").toLowerCase();
-    const svcId = eng === "postgresql" || eng === "postgres" ? "postgresql" : eng === "redis" ? "redis" : eng === "sqlite" ? null : "mariadb";
-    if (svcId) {
-      const svc = services.find((s) => s.id === svcId);
-      if (svc && svc.status !== "running") {
-        showToast(`Starting ${svc.name}...`);
-        await startService(svcId);
-        await new Promise((r) => setTimeout(r, 600));
-        await fetchBackendState(false);
+    try {
+      const eng = (engine || "mariadb").toLowerCase();
+      const svcId = eng === "postgresql" || eng === "postgres" ? "postgresql" : eng === "redis" ? "redis" : eng === "sqlite" ? null : "mariadb";
+      if (svcId) {
+        const svc = services.find((s) => s.id === svcId);
+        if (svc && svc.status !== "running") {
+          showToast(`Starting ${svc.name}...`);
+          await startService(svcId);
+          await new Promise((r) => setTimeout(r, 600));
+          await fetchBackendState(false);
+        }
       }
+      const result = await launchDbManager(eng);
+      if (result?.launched_type === "native") {
+        showToast(`Native database client launched: ${result.client_name}`);
+      } else if (result?.launched_type === "web_adminer") {
+        showToast("Opened built-in Adminer database manager in browser");
+      } else if (result?.launched_type === "folder") {
+        showToast("Opened SQLite directory in Explorer");
+      } else if (result?.launched_type === "terminal") {
+        showToast("Opened Redis CLI terminal");
+      } else {
+        showDatabaseModal = true;
+      }
+    } catch (err: any) {
+      showToast(err?.message || String(err));
     }
-    const result = await launchDbManager(eng);
-    if (result?.launched_type === "native") {
-      showToast(`Native database client launched: ${result.client_name}`);
-      return;
-    }
-    if (result?.launched_type === "web_adminer") {
-      showToast("Opened built-in Adminer database manager in browser");
-      return;
-    }
-    if (result?.launched_type === "folder") {
-      showToast("Opened SQLite directory in Explorer");
-      return;
-    }
-    if (result?.launched_type === "terminal") {
-      showToast("Opened Redis CLI terminal");
-      return;
-    }
-    showDatabaseModal = true;
   }
 
   async function openWebAdminerExplicit(): Promise<void> {
@@ -176,12 +167,16 @@
       await new Promise((r) => setTimeout(r, 600));
       await fetchBackendState(false);
     }
-    const launched = await launchNativeClient();
-    if (launched) {
-      showToast("Desktop database client launched successfully!");
-      showDatabaseModal = false;
-    } else {
-      showToast("No native desktop client (HeidiSQL, DBeaver, TablePlus) found.");
+    try {
+      const launched = await launchNativeClient();
+      if (launched) {
+        showToast("Desktop database client launched successfully!");
+        showDatabaseModal = false;
+      } else {
+        showToast("No native desktop client (HeidiSQL, DBeaver, TablePlus) found.");
+      }
+    } catch (err: any) {
+      showToast(err?.message || String(err));
     }
   }
 

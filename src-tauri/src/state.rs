@@ -46,7 +46,7 @@ impl AppState {
     }
 }
 
-fn dirs_next_or_default() -> PathBuf {
+pub fn dirs_next_or_default() -> PathBuf {
     if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
         PathBuf::from(appdata).join("4Forge").join("runtimes")
     } else {
@@ -54,7 +54,7 @@ fn dirs_next_or_default() -> PathBuf {
     }
 }
 
-fn find_binary_in_path(bin_name: &str) -> Option<PathBuf> {
+pub fn find_binary_in_path(bin_name: &str) -> Option<PathBuf> {
     if let Some(paths) = std::env::var_os("PATH") {
         for path in std::env::split_paths(&paths) {
             let candidate = path.join(bin_name);
@@ -70,6 +70,85 @@ fn find_binary_in_path(bin_name: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+pub fn is_runtime_installed(service_name: &str) -> bool {
+    let runtimes_root = dirs_next_or_default();
+    let alt_runtimes_root = PathBuf::from("C:\\4forge\\runtimes");
+    match service_name {
+        "postgresql" | "postgres" => {
+            find_binary_in_path("postgres.exe").is_some()
+                || runtimes_root
+                    .join("postgresql")
+                    .join("bin")
+                    .join("postgres.exe")
+                    .is_file()
+                || runtimes_root
+                    .join("postgres")
+                    .join("bin")
+                    .join("postgres.exe")
+                    .is_file()
+                || alt_runtimes_root
+                    .join("postgresql")
+                    .join("bin")
+                    .join("postgres.exe")
+                    .is_file()
+                || alt_runtimes_root
+                    .join("postgres")
+                    .join("bin")
+                    .join("postgres.exe")
+                    .is_file()
+        }
+        "mariadb" | "mysql" => {
+            find_binary_in_path("mysqld.exe").is_some()
+                || find_binary_in_path("mariadbd.exe").is_some()
+                || runtimes_root
+                    .join("mariadb")
+                    .join("bin")
+                    .join("mysqld.exe")
+                    .is_file()
+                || runtimes_root
+                    .join("mysql")
+                    .join("bin")
+                    .join("mysqld.exe")
+                    .is_file()
+                || alt_runtimes_root
+                    .join("mariadb")
+                    .join("bin")
+                    .join("mysqld.exe")
+                    .is_file()
+                || alt_runtimes_root
+                    .join("mysql")
+                    .join("bin")
+                    .join("mysqld.exe")
+                    .is_file()
+        }
+        "redis" => {
+            find_binary_in_path("redis-server.exe").is_some()
+                || runtimes_root
+                    .join("redis")
+                    .join("redis-server.exe")
+                    .is_file()
+                || alt_runtimes_root
+                    .join("redis")
+                    .join("redis-server.exe")
+                    .is_file()
+        }
+        "caddy" => {
+            find_binary_in_path("caddy.exe").is_some()
+                || runtimes_root.join("caddy").join("caddy.exe").is_file()
+                || alt_runtimes_root.join("caddy").join("caddy.exe").is_file()
+        }
+        "php" => {
+            find_binary_in_path("php-cgi.exe").is_some()
+                || find_binary_in_path("php.exe").is_some()
+                || runtimes_root.join("php").join("php-cgi.exe").is_file()
+                || runtimes_root.join("php").join("php.exe").is_file()
+                || alt_runtimes_root.join("php").join("php-cgi.exe").is_file()
+                || alt_runtimes_root.join("php").join("php.exe").is_file()
+        }
+        _ => true,
+    }
 }
 
 fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervisor::ProcessConfig> {

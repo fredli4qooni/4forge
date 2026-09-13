@@ -528,6 +528,14 @@ pub async fn open_system_terminal(
 
 #[tauri::command]
 pub async fn open_database_gui() -> Result<bool, String> {
+    let is_healthy = forge_db_manager::DatabaseManager::check_port_health(3306, 400).await;
+    if !is_healthy {
+        if !crate::state::is_runtime_installed("mariadb") {
+            return Err("MySQL / MariaDB binary (mysqld.exe) is not installed on this machine. Please install MySQL/MariaDB or place binaries in C:\\4forge\\runtimes\\mariadb.".to_string());
+        } else {
+            return Err("MariaDB / MySQL service is not running on port 3306. Please start the service first.".to_string());
+        }
+    }
     forge_supervisor::NativeShell::launch_database_client("127.0.0.1", 3306, "root")
         .map_err(|e| e.to_string())
 }
@@ -656,6 +664,10 @@ pub async fn launch_database_manager(
         .unwrap_or_else(|| "mariadb".to_string())
         .to_lowercase();
     if eng == "redis" {
+        let is_healthy = forge_db_manager::DatabaseManager::check_port_health(6379, 300).await;
+        if !is_healthy && !crate::state::is_runtime_installed("redis") {
+            return Err("Redis binary (redis-server.exe) is not installed on this machine. Please install Redis or place binaries in C:\\4forge\\runtimes\\redis.".to_string());
+        }
         let _ = forge_supervisor::NativeShell::open_terminal(
             Some(&std::path::PathBuf::from("C:\\4forge\\data")),
             &[],
@@ -678,11 +690,31 @@ pub async fn launch_database_manager(
         });
     }
 
-    let (port, user) = if eng == "postgresql" || eng == "postgres" {
-        (5432, "postgres")
+    let (port, user, svc_name, bin_name) = if eng == "postgresql" || eng == "postgres" {
+        (5432, "postgres", "postgresql", "postgres.exe")
     } else {
-        (3306, "root")
+        (3306, "root", "mariadb", "mysqld.exe")
     };
+
+    let is_healthy = forge_db_manager::DatabaseManager::check_port_health(port, 400).await;
+    if !is_healthy {
+        let label = if svc_name == "postgresql" {
+            "PostgreSQL"
+        } else {
+            "MariaDB / MySQL"
+        };
+        if !crate::state::is_runtime_installed(svc_name) {
+            return Err(format!(
+                "{} binary ({}) is not installed on this machine. Please install {} or place binaries in C:\\4forge\\runtimes\\{}.",
+                label, bin_name, label, svc_name
+            ));
+        } else {
+            return Err(format!(
+                "{} service is not running on port {}. Please start the service first.",
+                label, port
+            ));
+        }
+    }
 
     let svcs = state.supervisor.list_services().await;
     let web_port = svcs

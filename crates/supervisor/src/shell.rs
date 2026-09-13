@@ -160,7 +160,9 @@ impl NativeShell {
 
             let mut cmd = Command::new(&client);
             if filename.contains("heidisql") {
-                cmd.arg(format!("--host={}", host))
+                let net_type = if port == 5432 { "2" } else { "0" };
+                cmd.arg(format!("--net-type={}", net_type))
+                    .arg(format!("--host={}", host))
                     .arg(format!("--port={}", port))
                     .arg(format!("--user={}", user));
             }
