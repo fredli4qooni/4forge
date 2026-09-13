@@ -52,6 +52,10 @@ pub fn run() {
             commands::open_system_terminal,
             commands::open_database_gui,
             commands::open_service_config,
+            commands::detect_project_framework,
+            commands::scan_projects_directory,
+            commands::open_path_in_vscode,
+            commands::auto_register_detected_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");

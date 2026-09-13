@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 pub mod client;
+pub mod detector;
 pub mod generator;
 pub mod trust;
 pub mod vhost;
 
 pub use client::{CaddyClient, CaddyClientError};
+pub use detector::{DetectedProject, ProjectSignatureDetector};
 pub use generator::CaddyConfigGenerator;
 use serde::{Deserialize, Serialize};
 pub use trust::CaddyTrustManager;

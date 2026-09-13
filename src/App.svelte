@@ -4,16 +4,19 @@
   import {
     Activity,
     CheckCircle2,
+    Code,
     Database,
     ExternalLink,
     FileText,
     FolderKanban,
+    FolderOpen,
     Globe,
     Layers,
     Play,
     Plus,
     Power,
     RefreshCw,
+    Scan,
     ScrollText,
     Server,
     ShieldCheck,
@@ -76,11 +79,25 @@
   let portConflicts = $state<PortCheckResult[]>([]);
   let dismissedConflictBanner = $state(false);
 
+  interface DetectedProject {
+    name: string;
+    path: string;
+    domain: string;
+    framework: string;
+    runtime: string;
+    web_root: string;
+    backend_type: string;
+    target: string;
+  }
+
   let showAddSiteModal = $state(false);
   let newSiteDomain = $state("");
   let newSitePath = $state("");
   let newSiteType = $state("fastcgi");
   let newSiteTarget = $state("127.0.0.1:9000");
+  let detectedProject = $state<DetectedProject | null>(null);
+  let domainSuffix = $state("test");
+  let isScanningWorkspace = $state(false);
 
   let showUpdateModal = $state(false);
   let isCheckingUpdate = $state(false);
@@ -438,6 +455,97 @@
       sites = sites.filter((s) => s.domain !== domain);
     }
     showToast(`Site ${domain} removed`);
+  }
+
+  async function detectPathFramework(path: string): Promise<void> {
+    if (!path || path.trim().length < 2) {
+      detectedProject = null;
+      return;
+    }
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      const res = await invokeTauri<DetectedProject>("detect_project_framework", {
+        path: path.trim(),
+        domainSuffix,
+      });
+      if (res) {
+        detectedProject = res;
+        newSiteDomain = res.domain;
+        newSiteType = res.backend_type;
+        newSiteTarget = res.target;
+      }
+    } else {
+      const parts = path.trim().split(/[/\\]/).filter(Boolean);
+      const name = parts.length > 0 ? parts[parts.length - 1] : "project";
+      const cleanSlug = name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+      detectedProject = {
+        name,
+        path: path.trim(),
+        domain: `${cleanSlug}.${domainSuffix}`,
+        framework: "Auto-Detected Stack",
+        runtime: "PHP 8.3",
+        web_root: path.trim(),
+        backend_type: "fastcgi",
+        target: "127.0.0.1:9000",
+      };
+      newSiteDomain = detectedProject.domain;
+      newSiteType = detectedProject.backend_type;
+      newSiteTarget = detectedProject.target;
+    }
+  }
+
+  async function scanWorkspaceProjects(): Promise<void> {
+    isScanningWorkspace = true;
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      const list = await invokeTauri<DetectedProject[]>("scan_projects_directory", {
+        dir: null,
+        domainSuffix,
+      });
+      if (list && list.length > 0) {
+        for (const p of list) {
+          await invokeTauri("auto_register_detected_project", { project: p });
+        }
+        await fetchBackendState();
+        showToast(`Auto-scanned & registered ${list.length} virtual hosts from workspace!`);
+      } else {
+        showToast("No new project directories found in C:\\4forge\\projects");
+      }
+    } else {
+      showToast("Workspace scan simulated: registered 2 virtual hosts");
+    }
+    isScanningWorkspace = false;
+  }
+
+  async function openProjectInVsCode(path: string): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      await invokeTauri("open_path_in_vscode", { path });
+      showToast("Opening project in VS Code...");
+    } else {
+      showToast(`VS Code launch simulated for ${path}`);
+    }
+  }
+
+  async function openSiteBrowser(domain: string): Promise<void> {
+    const url = `http://${domain}`;
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      await invokeTauri("open_browser", { url });
+    } else {
+      window.open(url, "_blank");
+    }
+    showToast(`Opening ${url}...`);
+  }
+
+  async function openSiteFolder(path: string): Promise<void> {
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      await invokeTauri("open_projects_folder", { path });
+      showToast("Opening folder in Windows Explorer...");
+    } else {
+      showToast(`Explorer opened: ${path}`);
+    }
   }
 
   function selectPhpVersion(v: string): void {
@@ -859,17 +967,31 @@
 
         <div>
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Managed Sites & Projects</h3>
-            <button
-              onclick={() => (showAddSiteModal = true)}
-              class="text-xs px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 flex items-center gap-1.5 font-medium transition-all"
-            >
-              <Plus class="w-3.5 h-3.5" />
-              Add Project
-            </button>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-200 uppercase tracking-wider">Managed Sites & Projects</h3>
+              <p class="text-[11px] text-slate-400">Zero-config automatic virtual hosts with internal SSL certificates</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                onclick={scanWorkspaceProjects}
+                disabled={isScanningWorkspace}
+                class="text-xs px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-slate-200 border border-slate-700 flex items-center gap-1.5 font-medium transition-all hover:border-cyan-500/40"
+                title="Scan C:\4forge\projects and auto-register all subfolders as .test sites"
+              >
+                <Scan class="w-3.5 h-3.5 text-cyan-400 {isScanningWorkspace ? 'animate-spin' : ''}" />
+                <span>{isScanningWorkspace ? "Scanning..." : "Scan Workspace"}</span>
+              </button>
+              <button
+                onclick={() => (showAddSiteModal = true)}
+                class="text-xs px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:brightness-110 flex items-center gap-1.5 font-bold transition-all shadow-md shadow-cyan-500/20"
+              >
+                <Plus class="w-3.5 h-3.5" />
+                <span>Add Project</span>
+              </button>
+            </div>
           </div>
 
-          <div class="rounded-xl border border-slate-800/90 bg-[#121929]/50 overflow-hidden">
+          <div class="rounded-xl border border-slate-800/90 bg-[#121929]/50 overflow-hidden shadow-lg">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-900/70 text-slate-400 uppercase font-semibold border-b border-slate-800">
                 <tr>
@@ -885,21 +1007,43 @@
                   <tr class="hover:bg-slate-800/30 transition-colors">
                     <td class="px-5 py-3.5 font-medium text-white flex items-center gap-2">
                       <Globe class="w-3.5 h-3.5 text-cyan-400" />
-                      <span class="hover:text-cyan-300 cursor-pointer">{site.domain}</span>
+                      <button onclick={() => openSiteBrowser(site.domain)} class="hover:text-cyan-300 hover:underline font-mono font-semibold transition-colors text-left">{site.domain}</button>
                     </td>
-                    <td class="px-5 py-3.5 font-mono text-[11px] text-emerald-400">{site.runtime}</td>
+                    <td class="px-5 py-3.5 font-mono text-[11px] text-emerald-400 font-semibold">{site.runtime}</td>
                     <td class="px-5 py-3.5">
-                      <span class="inline-flex items-center gap-1 text-cyan-400 font-medium">
+                      <span class="inline-flex items-center gap-1 text-cyan-400 font-medium bg-cyan-950/30 px-2 py-0.5 rounded border border-cyan-500/20 text-[11px]">
                         <CheckCircle2 class="w-3 h-3" /> Auto-HTTPS
                       </span>
                     </td>
                     <td class="px-5 py-3.5 font-mono text-[11px] text-slate-400 truncate max-w-xs">{site.path}</td>
-                    <td class="px-5 py-3.5 text-right space-x-2">
+                    <td class="px-5 py-3.5 text-right space-x-1.5">
+                      <button
+                        onclick={() => openSiteBrowser(site.domain)}
+                        title="Open in Web Browser"
+                        class="p-1.5 rounded-lg text-cyan-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors inline-flex items-center"
+                      >
+                        <ExternalLink class="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onclick={() => openSiteFolder(site.path)}
+                        title="Open Folder in File Explorer"
+                        class="p-1.5 rounded-lg text-amber-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors inline-flex items-center"
+                      >
+                        <FolderOpen class="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onclick={() => openProjectInVsCode(site.path)}
+                        title="Open in VS Code"
+                        class="p-1.5 rounded-lg text-blue-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-colors inline-flex items-center"
+                      >
+                        <Code class="w-3.5 h-3.5" />
+                      </button>
                       <button
                         onclick={() => handleDeleteSite(site.domain)}
-                        class="text-xs text-rose-400 hover:text-rose-200 px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20"
+                        title="Remove Virtual Host"
+                        class="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-colors inline-flex items-center"
                       >
-                        <Trash2 class="w-3 h-3 inline" />
+                        <Trash2 class="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
@@ -1053,46 +1197,90 @@
           <div class="flex items-center justify-between">
             <div>
               <h2 class="text-xl font-bold text-white">Virtual Hosts & Projects</h2>
-              <p class="text-xs text-slate-400 mt-1">Automatic reverse proxy routing and internal CA auto-HTTPS certificates.</p>
+              <p class="text-xs text-slate-400 mt-1">Automatic reverse proxy routing, internal CA auto-HTTPS, and framework auto-detection.</p>
             </div>
-            <button
-              onclick={() => (showAddSiteModal = true)}
-              class="px-4 py-2 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 flex items-center gap-2 font-medium text-xs transition-all shadow-md shadow-cyan-500/10"
-            >
-              <Plus class="w-4 h-4" />
-              New Virtual Host
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                onclick={scanWorkspaceProjects}
+                disabled={isScanningWorkspace}
+                class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-2 font-medium text-xs transition-all hover:border-cyan-500/40"
+                title="Scan C:\4forge\projects and auto-register all subfolders as .test sites"
+              >
+                <Scan class="w-4 h-4 text-cyan-400 {isScanningWorkspace ? 'animate-spin' : ''}" />
+                <span>{isScanningWorkspace ? "Scanning..." : "Scan Workspace"}</span>
+              </button>
+              <button
+                onclick={() => (showAddSiteModal = true)}
+                class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:brightness-110 flex items-center gap-2 font-bold text-xs transition-all shadow-md shadow-cyan-500/20"
+              >
+                <Plus class="w-4 h-4" />
+                <span>+ Add Project</span>
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {#each sites as site}
-              <div class="rounded-xl border border-slate-800/90 bg-[#121929]/70 p-5 flex flex-col justify-between">
+              <div class="rounded-2xl border border-slate-800/90 bg-[#121929]/70 hover:bg-[#121929]/90 p-5 flex flex-col justify-between transition-all hover:border-slate-700/80 shadow-lg">
                 <div>
                   <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 text-white font-semibold">
+                    <div class="flex items-center gap-2 text-white font-bold">
                       <Globe class="w-4 h-4 text-cyan-400" />
-                      <span>{site.domain}</span>
+                      <button onclick={() => openSiteBrowser(site.domain)} class="hover:text-cyan-300 hover:underline font-mono text-sm transition-colors text-left">{site.domain}</button>
                     </div>
-                    <span class="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                      <CheckCircle2 class="w-3 h-3" /> SSL OK
+                    <span class="inline-flex items-center gap-1 text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 font-medium">
+                      <CheckCircle2 class="w-3 h-3" /> Auto-HTTPS
                     </span>
                   </div>
 
-                  <p class="text-xs text-slate-400 font-mono truncate mb-3">{site.path}</p>
+                  <p class="text-xs text-slate-400 font-mono truncate mb-3 bg-[#0B101C]/60 px-2.5 py-1.5 rounded-lg border border-slate-800">{site.path}</p>
 
-                  <div class="text-xs bg-[#0B101C]/60 rounded-lg p-3 border border-slate-800 flex justify-between">
-                    <span class="text-slate-400">Backend Type:</span>
-                    <span class="text-cyan-300 font-medium capitalize">{site.backend_type}</span>
+                  <div class="text-xs bg-[#0B101C]/60 rounded-xl p-3 border border-slate-800 space-y-1.5">
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-400">Runtime:</span>
+                      <span class="text-emerald-400 font-mono font-semibold">{site.runtime}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span class="text-slate-400">Backend & Target:</span>
+                      <span class="text-cyan-300 font-mono font-medium">{site.backend_type.toUpperCase()} ({site.target})</span>
+                    </div>
                   </div>
                 </div>
 
                 <div class="mt-4 flex items-center justify-between border-t border-slate-800/80 pt-3">
-                  <span class="text-[11px] text-slate-400 font-mono">Target: {site.target}</span>
+                  <div class="flex items-center gap-2">
+                    <button
+                      onclick={() => openSiteBrowser(site.domain)}
+                      class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 flex items-center gap-1.5 transition-colors"
+                      title="Open in Web Browser"
+                    >
+                      <ExternalLink class="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Browse</span>
+                    </button>
+                    <button
+                      onclick={() => openSiteFolder(site.path)}
+                      class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 flex items-center gap-1.5 transition-colors"
+                      title="Open Folder in File Explorer"
+                    >
+                      <FolderOpen class="w-3.5 h-3.5 text-amber-400" />
+                      <span>Folder</span>
+                    </button>
+                    <button
+                      onclick={() => openProjectInVsCode(site.path)}
+                      class="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 flex items-center gap-1.5 transition-colors"
+                      title="Open in VS Code"
+                    >
+                      <Code class="w-3.5 h-3.5 text-blue-400" />
+                      <span>Code</span>
+                    </button>
+                  </div>
+
                   <button
                     onclick={() => handleDeleteSite(site.domain)}
-                    class="text-xs text-rose-400 hover:text-rose-200 px-2.5 py-1 rounded bg-rose-500/10 border border-rose-500/20 transition-colors"
+                    class="p-1.5 rounded-lg text-rose-400 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-colors"
+                    title="Remove Virtual Host"
                   >
-                    Delete
+                    <Trash2 class="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -1309,76 +1497,141 @@
 
   {#if showAddSiteModal}
     <div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="rounded-2xl border border-slate-800 bg-[#121929] w-full max-w-md p-6 shadow-2xl space-y-5">
+      <div class="rounded-2xl border border-slate-800 bg-[#121929] w-full max-w-lg p-6 shadow-2xl space-y-5">
         <div class="flex items-center justify-between">
-          <h3 class="text-base font-bold text-white">Add New Virtual Host</h3>
-          <button onclick={() => (showAddSiteModal = false)} class="text-slate-400 hover:text-white">
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <Globe class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">Add Project (Zero-Config)</h3>
+              <p class="text-xs text-slate-400">Automatic framework detection and reverse proxy SSL setup</p>
+            </div>
+          </div>
+          <button onclick={() => (showAddSiteModal = false)} class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
             <X class="w-5 h-5" />
           </button>
         </div>
 
-        <div class="space-y-3 text-xs">
+        <div class="space-y-4 text-xs">
           <div>
-            <label for="site-domain" class="block text-slate-300 font-medium mb-1">Local Domain (.test)</label>
-            <input
-              id="site-domain"
-              type="text"
-              bind:value={newSiteDomain}
-              placeholder="e.g. myproject.test"
-              class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 font-mono"
-            />
-          </div>
-
-          <div>
-            <label for="site-path" class="block text-slate-300 font-medium mb-1">Root Directory Path</label>
+            <div class="flex justify-between items-center mb-1">
+              <label for="site-path" class="text-slate-300 font-medium">Project Folder Path</label>
+              <button
+                type="button"
+                onclick={() => {
+                  newSitePath = "C:\\4forge\\projects\\new-laravel-app";
+                  detectPathFramework(newSitePath);
+                }}
+                class="text-cyan-400 hover:text-cyan-300 text-[11px] underline"
+              >
+                Sample Folder
+              </button>
+            </div>
             <input
               id="site-path"
               type="text"
               bind:value={newSitePath}
-              placeholder="C:\projects\myproject\public"
-              class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 font-mono"
+              oninput={(e) => detectPathFramework((e.target as HTMLInputElement).value)}
+              placeholder="C:\4forge\projects\my-app"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 font-mono text-xs shadow-inner"
             />
           </div>
 
-          <div>
-            <label for="site-type" class="block text-slate-300 font-medium mb-1">Backend Type</label>
-            <select
-              id="site-type"
-              bind:value={newSiteType}
-              class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500"
-            >
-              <option value="fastcgi">PHP FastCGI (php-cgi)</option>
-              <option value="proxy">Node.js Reverse Proxy</option>
-              <option value="python">Python FastAPI / Flask (Uvicorn)</option>
-              <option value="ruby">Ruby Rails / Sinatra (Puma)</option>
-              <option value="static">Static HTML / Frontend Bundle</option>
-            </select>
+          {#if detectedProject}
+            <div class="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 space-y-2 text-xs text-slate-300 shadow-md shadow-emerald-950/20">
+              <div class="flex items-center justify-between">
+                <span class="text-emerald-300 font-bold flex items-center gap-1.5">
+                  <Sparkles class="w-4 h-4 text-emerald-400" />
+                  Detected: {detectedProject.framework} ({detectedProject.runtime})
+                </span>
+                <span class="text-emerald-400 font-mono text-[10px] bg-emerald-900/40 px-2 py-0.5 rounded border border-emerald-500/30">Auto-Configured</span>
+              </div>
+              <div class="text-[11px] text-slate-400 space-y-1 pt-1.5 border-t border-emerald-500/20">
+                <div class="flex justify-between">
+                  <span>Web Root:</span>
+                  <span class="font-mono text-emerald-200 truncate max-w-xs">{detectedProject.web_root}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Backend Routing:</span>
+                  <span class="font-mono text-cyan-300">{detectedProject.backend_type.toUpperCase()} ({detectedProject.target})</span>
+                </div>
+              </div>
+            </div>
+          {/if}
+
+          <div class="grid grid-cols-3 gap-3">
+            <div class="col-span-2">
+              <label for="site-domain" class="block text-slate-300 font-medium mb-1">Local Domain</label>
+              <input
+                id="site-domain"
+                type="text"
+                bind:value={newSiteDomain}
+                placeholder="e.g. my-app.test"
+                class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label for="domain-suffix" class="block text-slate-300 font-medium mb-1">Domain Suffix</label>
+              <select
+                id="domain-suffix"
+                bind:value={domainSuffix}
+                onchange={() => {
+                  if (newSitePath) detectPathFramework(newSitePath);
+                }}
+                class="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-cyan-400 font-mono font-bold focus:outline-none focus:border-cyan-500 text-xs"
+              >
+                <option value="test">.test</option>
+                <option value="local">.local</option>
+                <option value="localhost">.localhost</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label for="site-target" class="block text-slate-300 font-medium mb-1">Upstream Target</label>
-            <input
-              id="site-target"
-              type="text"
-              bind:value={newSiteTarget}
-              placeholder="127.0.0.1:9000 or 127.0.0.1:3000"
-              class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-500 font-mono"
-            />
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label for="site-type" class="block text-slate-400 text-[11px] mb-1">Backend Type</label>
+              <select
+                id="site-type"
+                bind:value={newSiteType}
+                class="w-full px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-200 focus:outline-none focus:border-cyan-500 text-xs"
+              >
+                <option value="fastcgi">PHP FastCGI (php-cgi)</option>
+                <option value="proxy">Reverse Proxy (Node/Python)</option>
+                <option value="static">Static HTML</option>
+              </select>
+            </div>
+            <div>
+              <label for="site-target" class="block text-slate-400 text-[11px] mb-1">Upstream Target</label>
+              <input
+                id="site-target"
+                type="text"
+                bind:value={newSiteTarget}
+                placeholder="127.0.0.1:9000"
+                class="w-full px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-200 focus:outline-none focus:border-cyan-500 font-mono text-xs"
+              />
+            </div>
           </div>
         </div>
 
-        <div class="flex items-center justify-end gap-3 pt-2">
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
           <button
-            onclick={() => (showAddSiteModal = false)}
-            class="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
+            type="button"
+            onclick={() => {
+              showAddSiteModal = false;
+              detectedProject = null;
+            }}
+            class="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white transition-colors"
           >
             Cancel
           </button>
           <button
+            type="button"
             onclick={handleAddSite}
-            class="px-4 py-2 rounded-xl text-xs font-medium bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:brightness-110 shadow-lg shadow-cyan-500/20"
+            class="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:brightness-110 shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-1.5"
           >
-            Save & Generate VHost
+            <CheckCircle2 class="w-4 h-4" />
+            <span>Create Virtual Host</span>
           </button>
         </div>
       </div>

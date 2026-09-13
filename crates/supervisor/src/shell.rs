@@ -173,6 +173,25 @@ impl NativeShell {
             Ok(())
         }
     }
+
+    pub fn open_in_editor(path: &Path) -> std::io::Result<()> {
+        #[cfg(windows)]
+        {
+            let res = Command::new("cmd.exe")
+                .args(["/c", "code", &path.to_string_lossy()])
+                .spawn();
+            if res.is_ok() {
+                return Ok(());
+            }
+            Command::new("explorer.exe").arg(path).spawn()?;
+            Ok(())
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = Command::new("code").arg(path).spawn();
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -192,6 +211,15 @@ mod tests {
         let tmp = std::env::temp_dir().join("4forge_test_shell_config.ini");
         let res = NativeShell::open_file(&tmp);
         let _ = std::fs::remove_file(&tmp);
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_native_shell_open_in_editor() {
+        let tmp = std::env::temp_dir().join("4forge_test_shell_proj");
+        let _ = std::fs::create_dir_all(&tmp);
+        let res = NativeShell::open_in_editor(&tmp);
+        let _ = std::fs::remove_dir_all(&tmp);
         assert!(res.is_ok());
     }
 }

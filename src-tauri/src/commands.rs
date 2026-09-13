@@ -547,3 +547,54 @@ pub async fn open_service_config(service_id: String) -> Result<String, String> {
     forge_supervisor::NativeShell::open_file(&file_path).map_err(|e| e.to_string())?;
     Ok(file_path.to_string_lossy().to_string())
 }
+
+#[tauri::command]
+pub async fn detect_project_framework(
+    path: String,
+    domain_suffix: Option<String>,
+) -> Result<forge_caddy_config::DetectedProject, String> {
+    let p = std::path::PathBuf::from(path);
+    Ok(forge_caddy_config::ProjectSignatureDetector::detect(
+        &p,
+        domain_suffix.as_deref(),
+    ))
+}
+
+#[tauri::command]
+pub async fn scan_projects_directory(
+    dir: Option<String>,
+    domain_suffix: Option<String>,
+) -> Result<Vec<forge_caddy_config::DetectedProject>, String> {
+    let p = dir
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("C:\\4forge\\projects"));
+    Ok(forge_caddy_config::ProjectSignatureDetector::scan_directory(&p, domain_suffix.as_deref()))
+}
+
+#[tauri::command]
+pub async fn open_path_in_vscode(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(path);
+    forge_supervisor::NativeShell::open_in_editor(&p).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn auto_register_detected_project(
+    state: State<'_, AppState>,
+    project: forge_caddy_config::DetectedProject,
+) -> Result<SiteDto, String> {
+    let vhost = project.to_virtual_host_config();
+    let dto = SiteDto {
+        domain: vhost.domain.clone(),
+        runtime: project.runtime.clone(),
+        ssl: vhost.enable_ssl,
+        path: vhost.root_dir.clone(),
+        backend_type: project.backend_type.clone(),
+        target: project.target.clone(),
+    };
+
+    let mut sites = state.sites.write().await;
+    sites.retain(|s| s.domain != vhost.domain);
+    sites.push(vhost);
+
+    Ok(dto)
+}
