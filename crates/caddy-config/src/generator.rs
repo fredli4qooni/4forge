@@ -106,10 +106,7 @@ impl CaddyConfigGenerator {
 
         for host in hosts {
             let normalized_root = host.root_dir.replace('\\', "/");
-            out.push_str(&format!(
-                "http://{}, https://{} {{\n",
-                host.domain, host.domain
-            ));
+            out.push_str(&format!("http://{} {{\n", host.domain));
             match &host.backend {
                 BackendType::Static => {
                     out.push_str(&format!("    root * \"{}\"\n", normalized_root));
@@ -124,7 +121,6 @@ impl CaddyConfigGenerator {
                     out.push_str(&format!("    reverse_proxy {}\n", upstream_addr));
                 }
             }
-            out.push_str("    tls internal\n");
             out.push_str("}\n\n");
         }
         out
@@ -169,10 +165,9 @@ mod tests {
 
         let caddyfile = CaddyConfigGenerator::generate_caddyfile(&hosts);
         assert!(caddyfile.contains("admin 127.0.0.1:2019"));
-        assert!(caddyfile.contains("http://project.test, https://project.test {"));
+        assert!(caddyfile.contains("http://project.test {"));
         assert!(caddyfile.contains("php_fastcgi 127.0.0.1:9000"));
-        assert!(caddyfile.contains("http://static.test, https://static.test {"));
+        assert!(caddyfile.contains("http://static.test {"));
         assert!(caddyfile.contains("file_server"));
-        assert!(caddyfile.contains("tls internal"));
     }
 }
