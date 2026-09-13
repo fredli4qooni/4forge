@@ -16,7 +16,7 @@ use crate::state::AppState;
 use forge_caddy_config::{BackendType, VirtualHostConfig};
 use forge_runtime_manager::RuntimeKind;
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{Emitter, State};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServiceItemDto {
@@ -811,4 +811,82 @@ pub async fn set_window_compact_mode(window: tauri::Window, compact: bool) -> Re
         let _ = window.set_size(tauri::LogicalSize::new(1080.0, 740.0));
     }
     Ok(())
+}
+
+fn collect_runtime_paths() -> Vec<std::path::PathBuf> {
+    let mut paths = Vec::new();
+    if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+        let base = std::path::PathBuf::from(appdata)
+            .join("4Forge")
+            .join("runtimes");
+        paths.push(base.join("php"));
+        paths.push(base.join("node"));
+        paths.push(base.join("mariadb").join("bin"));
+        paths.push(base.join("postgresql").join("bin"));
+        paths.push(base.join("redis"));
+        paths.push(base.join("python"));
+    }
+    if let Ok(sys_path) = std::env::var("PATH") {
+        for dir in std::env::split_paths(&sys_path) {
+            let s = dir.to_string_lossy().to_lowercase();
+            if s.contains("php")
+                || s.contains("mysql")
+                || s.contains("mariadb")
+                || s.contains("postgres")
+                || s.contains("redis")
+                || s.contains("nodejs")
+                || s.contains("python")
+            {
+                paths.push(dir);
+            }
+        }
+    }
+    paths
+}
+
+#[tauri::command]
+pub async fn terminal_spawn(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    cwd: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> Result<String, String> {
+    let workdir = cwd
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("C:\\4forge\\projects"));
+    let paths = collect_runtime_paths();
+    let app_handle = app.clone();
+    state
+        .pty_manager
+        .spawn_session(Some(&workdir), &paths, cols, rows, move |bytes| {
+            let text = String::from_utf8_lossy(&bytes).to_string();
+            let _ = app_handle.emit("terminal-data", text);
+        })
+}
+
+#[tauri::command]
+pub async fn terminal_write(
+    state: State<'_, AppState>,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
+    state
+        .pty_manager
+        .write_session(&session_id, data.as_bytes())
+}
+
+#[tauri::command]
+pub async fn terminal_resize(
+    state: State<'_, AppState>,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    state.pty_manager.resize_session(&session_id, cols, rows)
+}
+
+#[tauri::command]
+pub async fn terminal_kill(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
+    state.pty_manager.kill_session(&session_id)
 }

@@ -199,3 +199,33 @@ export async function setWindowCompactMode(compact: boolean): Promise<void> {
   }
 }
 
+export async function spawnTerminal(cwd?: string, cols?: number, rows?: number): Promise<string> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    const id = await invokeTauri<string>("terminal_spawn", { cwd: cwd || null, cols: cols || 80, rows: rows || 24 });
+    return id || "";
+  }
+  return "mock-session";
+}
+
+export async function writeTerminal(sessionId: string, data: string): Promise<void> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    await invokeTauri("terminal_write", { sessionId, data });
+  }
+}
+
+export async function resizeTerminal(sessionId: string, cols: number, rows: number): Promise<void> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    await invokeTauri("terminal_resize", { sessionId, cols, rows });
+  }
+}
+
+export async function killTerminal(sessionId: string): Promise<void> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    await invokeTauri("terminal_kill", { sessionId });
+  }
+}
+

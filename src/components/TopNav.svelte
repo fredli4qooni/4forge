@@ -9,6 +9,7 @@
     Settings,
     Sparkles,
     Square,
+    Terminal,
   } from "@lucide/svelte";
   import type { TabType } from "../types";
 
@@ -93,6 +94,16 @@
       >
         <ScrollText class="w-3.5 h-3.5 {activeTab === 'logs' ? 'text-[#94380C]' : 'text-slate-400'}" />
         <span>Logs</span>
+      </button>
+
+      <button
+        onclick={() => onSelectTab("terminal")}
+        class="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all {activeTab === 'terminal'
+          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+          : 'text-slate-600 hover:text-slate-900'}"
+      >
+        <Terminal class="w-3.5 h-3.5 {activeTab === 'terminal' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <span>Terminal</span>
       </button>
     </nav>
   </div>

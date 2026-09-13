@@ -43,18 +43,14 @@
   import SitesTab from "./components/tabs/SitesTab.svelte";
   import RuntimesTab from "./components/tabs/RuntimesTab.svelte";
   import LogsTab from "./components/tabs/LogsTab.svelte";
+  import TerminalTab from "./components/tabs/TerminalTab.svelte";
   import PortConflictBanner from "./components/PortConflictBanner.svelte";
   import TopNav from "./components/TopNav.svelte";
   import ModalsContainer from "./components/ModalsContainer.svelte";
 
-  let activeTab = $state<TabType>("cockpit");
-  let showSettingsModal = $state(false);
-  let allRunning = $state(false);
-  let isLoading = $state(false);
-  let toastMessage = $state<string | null>(null);
-  let uptimeSeconds = $state(0);
-  let portConflicts = $state<PortCheckResult[]>([]);
-  let dismissedConflictBanner = $state(false);
+  let activeTab = $state<TabType>("cockpit"), showSettingsModal = $state(false), allRunning = $state(false), isLoading = $state(false);
+  let toastMessage = $state<string | null>(null), uptimeSeconds = $state(0), activeTerminalCwd = $state("C:\\4forge\\projects");
+  let portConflicts = $state<PortCheckResult[]>([]), dismissedConflictBanner = $state(false);
   let showAddSiteModal = $state(false), newSiteDomain = $state(""), newSitePath = $state(""), newSiteType = $state("fastcgi"), newSiteTarget = $state("127.0.0.1:9000");
   let detectedProjectItem = $state<DetectedProject | null>(null), domainSuffix = $state("test"), isScanningWorkspace = $state(false), missingHosts = $state<string[]>([]), isSyncingHosts = $state(false);
   let showUpdateModal = $state(false), isCheckingUpdate = $state(false), updateStatus = $state<UpdateCheck | null>(null), showDatabaseModal = $state(false);
@@ -165,23 +161,25 @@
     }
   }
 
-  async function handleOpenProjectTerminal(path: string): Promise<void> {
-    try {
-      await openProjectTerminal(path);
-      showToast(`Opened PowerShell terminal in ${path}`);
-    } catch (err: any) {
-      showToast(`Failed to open project terminal: ${err}`);
-    }
-  }
-
   async function handleOpenFolder(p?: string): Promise<void> {
     await openProjectsFolder(p);
     showToast(p ? "Opening folder in Windows Explorer..." : "Opening projects directory...");
   }
 
+  function handleOpenProjectTerminal(path: string): void {
+    activeTerminalCwd = path;
+    activeTab = "terminal";
+    showToast(`Opened 4Forge Dev Shell in ${path}`);
+  }
+
+  function handleLaunchIntegratedTerminal(): void {
+    activeTerminalCwd = "C:\\4forge\\projects";
+    activeTab = "terminal";
+  }
+
   async function handleLaunchTerminal(): Promise<void> {
     await launchTerminal();
-    showToast("Launching 4Forge Dev Shell...");
+    showToast("Launching External Windows Terminal...");
   }
 
   async function handleOpenVsCode(path: string): Promise<void> {
@@ -390,7 +388,7 @@
         onToggleService={toggleService}
         onOpenWeb={openWebLocalhost}
         onOpenDatabase={openDatabaseAction}
-        onOpenTerminal={handleLaunchTerminal}
+        onOpenTerminal={handleLaunchIntegratedTerminal}
         onOpenProjects={() => handleOpenFolder()}
         onOpenConfig={openServiceConfig}
         onOpenLogs={openServiceLogs}
@@ -439,6 +437,13 @@
           bind:logFilter
           bind:logSearch
           onClearLogs={() => (logs = [])}
+        />
+      </div>
+    {:else if activeTab === "terminal"}
+      <div class="w-full p-5 lg:px-8 lg:py-6 h-[calc(100vh-56px)] flex flex-col">
+        <TerminalTab
+          initialCwd={activeTerminalCwd}
+          onOpenExternal={handleLaunchTerminal}
         />
       </div>
     {/if}

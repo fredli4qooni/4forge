@@ -63,7 +63,7 @@ export interface UpdateCheck {
   signature_verified: boolean;
 }
 
-export type TabType = "cockpit" | "dashboard" | "services" | "sites" | "runtimes" | "logs";
+export type TabType = "cockpit" | "dashboard" | "services" | "sites" | "runtimes" | "logs" | "terminal";
 
 export type ViewMode = "compact" | "expanded";
 

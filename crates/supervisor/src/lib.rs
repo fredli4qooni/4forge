@@ -16,12 +16,14 @@ pub mod log;
 pub mod manager;
 pub mod ports;
 pub mod process;
+pub mod pty;
 pub mod shell;
 
 pub use log::{LogHub, LogMessage, LogStream};
 pub use manager::SupervisorManager;
 pub use ports::{PortCheckResult, PortInspector};
 pub use process::{ActiveProcess, ProcessConfig, ProcessError};
+pub use pty::{PtySession, PtySessionManager};
 use serde::{Deserialize, Serialize};
 pub use shell::NativeShell;
 

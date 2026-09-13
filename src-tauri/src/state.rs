@@ -15,7 +15,7 @@
 use forge_caddy_config::VirtualHostConfig;
 use forge_db_manager::DatabaseManager;
 use forge_runtime_manager::RuntimeManager;
-use forge_supervisor::SupervisorManager;
+use forge_supervisor::{PtySessionManager, SupervisorManager};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -25,6 +25,7 @@ pub struct AppState {
     pub db_manager: Arc<RwLock<DatabaseManager>>,
     pub runtime_manager: Arc<RwLock<RuntimeManager>>,
     pub sites: Arc<RwLock<Vec<VirtualHostConfig>>>,
+    pub pty_manager: Arc<PtySessionManager>,
 }
 
 impl AppState {
@@ -34,6 +35,7 @@ impl AppState {
         let supervisor = Arc::new(SupervisorManager::new_with_services(default_services)?);
         let db_manager = Arc::new(RwLock::new(DatabaseManager::new()));
         let runtime_manager = Arc::new(RwLock::new(RuntimeManager::new(runtimes_root)));
+        let pty_manager = Arc::new(PtySessionManager::new());
 
         let default_sites = vec![];
 
@@ -42,6 +44,7 @@ impl AppState {
             db_manager,
             runtime_manager,
             sites: Arc::new(RwLock::new(default_sites)),
+            pty_manager,
         })
     }
 }
