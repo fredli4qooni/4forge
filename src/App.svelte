@@ -359,10 +359,6 @@
     {allRunning}
     onSelectTab={(tab) => (activeTab = tab)}
     onToggleAll={toggleAll}
-    onOpenWeb={openWebLocalhost}
-    onOpenDatabase={() => openDatabaseAction()}
-    onOpenTerminal={handleLaunchTerminal}
-    onOpenProjects={() => handleOpenFolder()}
     onOpenUpdateModal={() => (showUpdateModal = true)}
     onRefresh={() => fetchBackendState(true)}
     onOpenSettings={() => (showSettingsModal = true)}

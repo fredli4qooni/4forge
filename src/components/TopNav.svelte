@@ -1,7 +1,5 @@
 <script lang="ts">
   import {
-    Database,
-    FolderKanban,
     Globe,
     Layers,
     LayoutDashboard,
@@ -11,7 +9,6 @@
     Settings,
     Sparkles,
     Square,
-    Terminal,
   } from "@lucide/svelte";
   import type { TabType } from "../types";
 
@@ -22,10 +19,6 @@
     allRunning = false,
     onSelectTab,
     onToggleAll,
-    onOpenWeb,
-    onOpenDatabase,
-    onOpenTerminal,
-    onOpenProjects,
     onOpenUpdateModal,
     onRefresh,
     onOpenSettings,
@@ -36,10 +29,6 @@
     allRunning?: boolean;
     onSelectTab: (tab: TabType) => void;
     onToggleAll: () => void;
-    onOpenWeb: () => void;
-    onOpenDatabase: () => void;
-    onOpenTerminal: () => void;
-    onOpenProjects: () => void;
     onOpenUpdateModal: () => void;
     onRefresh: () => void;
     onOpenSettings: () => void;
@@ -128,44 +117,6 @@
         <Play class="w-3 h-3 fill-current" />
         <span>Start All</span>
       {/if}
-    </button>
-
-    <div class="h-4 w-px bg-slate-200 mx-1"></div>
-
-    <button
-      onclick={onOpenWeb}
-      title="Open localhost in Default Web Browser"
-      class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 text-xs font-medium transition-all shadow-xs"
-    >
-      <Globe class="w-3 h-3 text-slate-500" />
-      <span>Web</span>
-    </button>
-
-    <button
-      onclick={onOpenDatabase}
-      title="Database Quick Manager"
-      class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 text-xs font-medium transition-all shadow-xs"
-    >
-      <Database class="w-3 h-3 text-slate-500" />
-      <span>Database</span>
-    </button>
-
-    <button
-      onclick={onOpenTerminal}
-      title="Open 4Forge Dev Shell"
-      class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 text-xs font-medium transition-all shadow-xs"
-    >
-      <Terminal class="w-3 h-3 text-slate-500" />
-      <span>Terminal</span>
-    </button>
-
-    <button
-      onclick={onOpenProjects}
-      title="Open Projects Directory"
-      class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 text-xs font-medium transition-all shadow-xs"
-    >
-      <FolderKanban class="w-3 h-3 text-slate-500" />
-      <span>Root</span>
     </button>
 
     <div class="h-4 w-px bg-slate-200 mx-1"></div>
