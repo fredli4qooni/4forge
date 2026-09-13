@@ -291,6 +291,9 @@ pub async fn add_site(
         enable_ssl: true,
     });
 
+    let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
+    let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+
     Ok(())
 }
 
@@ -298,6 +301,10 @@ pub async fn add_site(
 pub async fn delete_site(state: State<'_, AppState>, domain: String) -> Result<(), String> {
     let mut sites = state.sites.write().await;
     sites.retain(|s| s.domain != domain);
+
+    let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
+    let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+
     Ok(())
 }
 
@@ -596,6 +603,9 @@ pub async fn auto_register_detected_project(
     sites.retain(|s| s.domain != vhost.domain);
     sites.push(vhost);
 
+    let all_domains: Vec<String> = sites.iter().map(|s| s.domain.clone()).collect();
+    let _ = forge_caddy_config::WindowsHostsManager::sync_domains(&all_domains);
+
     Ok(dto)
 }
 
@@ -649,4 +659,32 @@ pub async fn open_adminer_in_browser(state: State<'_, AppState>) -> Result<Strin
     let url = forge_db_manager::AdminerManager::get_adminer_url(web_port);
     forge_supervisor::NativeShell::open_browser(&url).map_err(|e| e.to_string())?;
     Ok(url)
+}
+
+#[tauri::command]
+pub async fn check_hosts_sync(
+    state: State<'_, AppState>,
+    domains: Option<Vec<String>>,
+) -> Result<Vec<String>, String> {
+    let domain_list = if let Some(d) = domains {
+        d
+    } else {
+        let sites_lock = state.sites.read().await;
+        sites_lock.iter().map(|s| s.domain.clone()).collect()
+    };
+    Ok(forge_caddy_config::WindowsHostsManager::check_missing_domains(&domain_list))
+}
+
+#[tauri::command]
+pub async fn sync_windows_hosts(
+    state: State<'_, AppState>,
+    domains: Option<Vec<String>>,
+) -> Result<bool, String> {
+    let domain_list = if let Some(d) = domains {
+        d
+    } else {
+        let sites_lock = state.sites.read().await;
+        sites_lock.iter().map(|s| s.domain.clone()).collect()
+    };
+    forge_caddy_config::WindowsHostsManager::sync_domains(&domain_list).map_err(|e| e.to_string())
 }

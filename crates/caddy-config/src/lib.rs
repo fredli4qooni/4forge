@@ -14,12 +14,14 @@
 pub mod client;
 pub mod detector;
 pub mod generator;
+pub mod hosts;
 pub mod trust;
 pub mod vhost;
 
 pub use client::{CaddyClient, CaddyClientError};
 pub use detector::{DetectedProject, ProjectSignatureDetector};
 pub use generator::CaddyConfigGenerator;
+pub use hosts::WindowsHostsManager;
 use serde::{Deserialize, Serialize};
 pub use trust::CaddyTrustManager;
 pub use vhost::{BackendType, VirtualHostConfig};

@@ -104,6 +104,8 @@
   let detectedProject = $state<DetectedProject | null>(null);
   let domainSuffix = $state("test");
   let isScanningWorkspace = $state(false);
+  let missingHosts = $state<string[]>([]);
+  let isSyncingHosts = $state(false);
 
   let showUpdateModal = $state(false);
   let isCheckingUpdate = $state(false);
@@ -151,6 +153,9 @@
       icon: Layers,
     },
   ]);
+
+  let runningCount = $derived(services.filter((s) => s.status === "running").length);
+  let stoppedCount = $derived(services.filter((s) => s.status !== "running").length);
 
   let sites = $state<SiteItem[]>([
     {
@@ -238,9 +243,15 @@
 
   async function openWebLocalhost(): Promise<void> {
     const caddySvc = services.find((s) => s.id === "caddy");
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri && caddySvc && caddySvc.status !== "running") {
+      showToast("Starting Caddy web server...");
+      await invokeTauri("start_service", { id: "caddy" });
+      await new Promise((r) => setTimeout(r, 600));
+      await fetchBackendState(false);
+    }
     const port = caddySvc && caddySvc.ports.includes("8080") ? "8080" : "80";
     const url = port === "80" ? "http://localhost" : `http://localhost:${port}`;
-    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
     if (hasTauri) {
       await invokeTauri("open_browser", { url });
     } else {
@@ -270,7 +281,14 @@
   }
 
   async function openDatabaseAction(): Promise<void> {
+    const mariaSvc = services.find((s) => s.id === "mariadb");
     const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri && mariaSvc && mariaSvc.status !== "running") {
+      showToast("Starting MariaDB service...");
+      await invokeTauri("start_service", { id: "mariadb" });
+      await new Promise((r) => setTimeout(r, 600));
+      await fetchBackendState(false);
+    }
     if (hasTauri) {
       const result = await invokeTauri<DatabaseLaunchResult>("launch_database_manager");
       if (result) {
@@ -287,8 +305,16 @@
   }
 
   async function openWebAdminerExplicit(): Promise<void> {
+    const mariaSvc = services.find((s) => s.id === "mariadb");
+    const caddySvc = services.find((s) => s.id === "caddy");
     const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
     if (hasTauri) {
+      if (mariaSvc && mariaSvc.status !== "running") {
+        await invokeTauri("start_service", { id: "mariadb" });
+      }
+      if (caddySvc && caddySvc.status !== "running") {
+        await invokeTauri("start_service", { id: "caddy" });
+      }
       try {
         const url = await invokeTauri<string>("open_adminer_in_browser");
         showToast(`Adminer database manager opened: ${url}`);
@@ -304,8 +330,15 @@
   }
 
   async function launchNativeClientExplicit(): Promise<void> {
+    const mariaSvc = services.find((s) => s.id === "mariadb");
     const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
     if (hasTauri) {
+      if (mariaSvc && mariaSvc.status !== "running") {
+        showToast("Starting MariaDB service...");
+        await invokeTauri("start_service", { id: "mariadb" });
+        await new Promise((r) => setTimeout(r, 600));
+        await fetchBackendState(false);
+      }
       const launched = await invokeTauri<boolean>("open_database_gui");
       if (launched) {
         showToast("Desktop database client launched successfully!");
@@ -361,12 +394,17 @@
         }
         return s;
       });
-      allRunning = services.some((s) => s.status === "running");
+      allRunning = services.length > 0 && services.every((s) => s.status === "running");
     }
 
     const backendSites = await invokeTauri<SiteItem[]>("list_sites");
     if (backendSites) {
       sites = backendSites;
+    }
+
+    const missing = await invokeTauri<string[]>("check_hosts_sync");
+    if (missing) {
+      missingHosts = missing;
     }
 
     const backendLogs = await invokeTauri<LogMessage[]>("get_logs", { limit: 100 });
@@ -399,6 +437,28 @@
     dismissedConflictBanner = true;
     await invokeTauri("update_service_port", { id: "caddy", newPort: conflict.alternative_port });
     showToast(`Switched ${conflict.service_name} to port ${newP}`);
+  }
+
+  async function syncHostsNow(): Promise<void> {
+    isSyncingHosts = true;
+    const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+    if (hasTauri) {
+      try {
+        const ok = await invokeTauri<boolean>("sync_windows_hosts");
+        if (ok) {
+          showToast("Windows hosts file synced successfully!");
+          missingHosts = [];
+        } else {
+          showToast("Hosts sync cancelled or failed.");
+        }
+      } catch (err: any) {
+        showToast(`Failed to sync hosts: ${err}`);
+      }
+    } else {
+      showToast("Hosts sync simulated (127.0.0.1 mapped)");
+      missingHosts = [];
+    }
+    isSyncingHosts = false;
   }
 
   async function toggleAll(): Promise<void> {
@@ -572,14 +632,24 @@
   }
 
   async function openSiteBrowser(domain: string): Promise<void> {
-    const url = `http://${domain}`;
     const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
     if (hasTauri) {
+      const caddySvc = services.find((s) => s.id === "caddy");
+      if (caddySvc && caddySvc.status !== "running") {
+        showToast("Starting Caddy web server...");
+        await invokeTauri("start_service", { id: "caddy" });
+        await new Promise((r) => setTimeout(r, 600));
+        await fetchBackendState(false);
+      }
+      if (missingHosts.includes(domain)) {
+        await syncHostsNow();
+      }
+      const url = `http://${domain}`;
       await invokeTauri("open_browser", { url });
     } else {
-      window.open(url, "_blank");
+      window.open(`http://${domain}`, "_blank");
     }
-    showToast(`Opening ${url}...`);
+    showToast(`Opening http://${domain}...`);
   }
 
   async function openSiteFolder(path: string): Promise<void> {
@@ -740,6 +810,8 @@
             ? 'opacity-70 cursor-not-allowed bg-slate-700 text-slate-300'
             : allRunning
             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+            : runningCount > 0
+            ? 'bg-gradient-to-r from-amber-500 to-emerald-600 text-white hover:brightness-110 shadow-amber-500/20'
             : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 shadow-emerald-500/20'}"
         >
           {#if isLoading}
@@ -748,6 +820,9 @@
           {:else if allRunning}
             <Square class="w-3.5 h-3.5 fill-current" />
             <span>Stop All</span>
+          {:else if runningCount > 0}
+            <Play class="w-3.5 h-3.5 fill-current" />
+            <span>Start All ({stoppedCount} stopped)</span>
           {:else}
             <Play class="w-3.5 h-3.5 fill-current" />
             <span>Start All</span>
@@ -1262,6 +1337,30 @@
               </button>
             </div>
           </div>
+
+          {#if missingHosts.length > 0}
+            <div class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-xs">
+              <div class="flex items-center gap-2.5 text-amber-300">
+                <ShieldCheck class="w-4 h-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>{missingHosts.length} virtual host</strong> ({missingHosts.slice(0, 2).join(", ")}{missingHosts.length > 2 ? '...' : ''}) belum terdaftar di Windows hosts.
+                </span>
+              </div>
+              <button
+                onclick={syncHostsNow}
+                disabled={isSyncingHosts}
+                class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
+              >
+                {#if isSyncingHosts}
+                  <RefreshCw class="w-3.5 h-3.5 animate-spin" />
+                  <span>Syncing...</span>
+                {:else}
+                  <ShieldCheck class="w-3.5 h-3.5" />
+                  <span>Sync Windows Hosts</span>
+                {/if}
+              </button>
+            </div>
+          {/if}
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             {#each sites as site}

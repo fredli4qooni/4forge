@@ -69,9 +69,22 @@ impl NativeShell {
 
         #[cfg(windows)]
         {
-            let init_cmd = format!(
-                "$env:Path = '{path_prefix}' + $env:Path; Write-Host '=========================================' -ForegroundColor Cyan; Write-Host '  4Forge Dev Shell Active' -ForegroundColor Green; Write-Host '  PHP, Node.js, Python, MariaDB in PATH' -ForegroundColor Yellow; Write-Host '=========================================' -ForegroundColor Cyan;"
+            let tools_dir = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+                PathBuf::from(appdata).join("4Forge").join("tools")
+            } else {
+                PathBuf::from("C:\\4forge\\tools")
+            };
+            let _ = std::fs::create_dir_all(&tools_dir);
+            let script_path = tools_dir.join("4forge-env.ps1");
+
+            let script_content = format!(
+                "$env:Path = \"{path_prefix}\" + $env:Path\r\n\
+                Write-Host '=========================================' -ForegroundColor Cyan\r\n\
+                Write-Host '  4Forge Dev Shell Active' -ForegroundColor Green\r\n\
+                Write-Host '  PHP, Node.js, Python, MariaDB in PATH' -ForegroundColor Yellow\r\n\
+                Write-Host '=========================================' -ForegroundColor Cyan\r\n"
             );
+            let _ = std::fs::write(&script_path, script_content);
 
             let has_wt = Command::new("where.exe")
                 .arg("wt.exe")
@@ -85,15 +98,19 @@ impl NativeShell {
                     .arg(&workdir)
                     .arg("powershell.exe")
                     .arg("-NoExit")
-                    .arg("-Command")
-                    .arg(&init_cmd);
+                    .arg("-ExecutionPolicy")
+                    .arg("Bypass")
+                    .arg("-File")
+                    .arg(&script_path);
                 cmd.spawn()?;
             } else {
                 let mut cmd = Command::new("powershell.exe");
                 cmd.current_dir(&workdir)
                     .arg("-NoExit")
-                    .arg("-Command")
-                    .arg(&init_cmd);
+                    .arg("-ExecutionPolicy")
+                    .arg("Bypass")
+                    .arg("-File")
+                    .arg(&script_path);
                 cmd.spawn()?;
             }
             Ok(())
