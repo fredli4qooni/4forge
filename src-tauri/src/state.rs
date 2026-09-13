@@ -34,6 +34,25 @@ impl AppState {
         let default_services = build_default_services(&runtimes_root);
         let supervisor = Arc::new(SupervisorManager::new_with_services(default_services)?);
         let mut dm = DatabaseManager::new();
+        let maria_driver = Arc::new(forge_db_manager::MariaDbDriver::new(
+            runtimes_root.join("mariadb"),
+            PathBuf::from("C:\\4forge\\data\\mariadb"),
+            3306,
+        ));
+        dm.register_driver(maria_driver);
+
+        let pg_driver = Arc::new(forge_db_manager::PostgreSqlDriver::new(
+            runtimes_root.join("postgresql"),
+            PathBuf::from("C:\\4forge\\data\\postgresql"),
+            5432,
+        ));
+        dm.register_driver(pg_driver);
+
+        let sqlite_driver = Arc::new(forge_db_manager::SqliteDriver::new(PathBuf::from(
+            "C:\\4forge\\data\\sqlite",
+        )));
+        dm.register_driver(sqlite_driver);
+
         let mongo_driver = Arc::new(forge_db_manager::MongoDbDriver::new(
             runtimes_root.join("mongodb"),
             PathBuf::from("C:\\4forge\\data\\mongodb"),

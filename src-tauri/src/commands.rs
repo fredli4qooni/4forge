@@ -799,11 +799,16 @@ pub async fn launch_database_manager(
     }
 
     let svcs = state.supervisor.list_services().await;
-    let web_port = svcs
+    let raw_port = svcs
         .iter()
         .find(|s| s.name == "caddy")
         .and_then(|s| s.port)
         .unwrap_or(80);
+    let web_port = if raw_port == 2019 || raw_port == 2020 || raw_port == 0 {
+        80
+    } else {
+        raw_port
+    };
 
     forge_db_manager::AdminerManager::launch_database_ui(
         &tools_dir,
@@ -816,7 +821,11 @@ pub async fn launch_database_manager(
 }
 
 #[tauri::command]
-pub async fn open_adminer_in_browser(state: State<'_, AppState>) -> Result<String, String> {
+pub async fn open_adminer_in_browser(
+    state: State<'_, AppState>,
+    engine: Option<String>,
+    db_name: Option<String>,
+) -> Result<String, String> {
     let tools_dir = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
         std::path::PathBuf::from(appdata)
             .join("4Forge")
@@ -827,15 +836,69 @@ pub async fn open_adminer_in_browser(state: State<'_, AppState>) -> Result<Strin
     let _ = forge_db_manager::AdminerManager::ensure_adminer_script(&tools_dir);
 
     let svcs = state.supervisor.list_services().await;
-    let web_port = svcs
+    let caddy_svc = svcs.iter().find(|s| s.name == "caddy");
+    let php_svc = svcs.iter().find(|s| s.name == "php");
+
+    if let Some(c) = caddy_svc {
+        if c.status != forge_supervisor::ServiceStatus::Running {
+            let _ = state.supervisor.start_service("caddy").await;
+        }
+    }
+    if let Some(p) = php_svc {
+        if p.status != forge_supervisor::ServiceStatus::Running {
+            let _ = state.supervisor.start_service("php").await;
+        }
+    }
+
+    let caddy_port = svcs
         .iter()
         .find(|s| s.name == "caddy")
         .and_then(|s| s.port)
         .unwrap_or(80);
 
-    let url = forge_db_manager::AdminerManager::get_adminer_url(web_port);
+    let web_port = if caddy_port == 2019 || caddy_port == 2020 || caddy_port == 0 {
+        80
+    } else {
+        caddy_port
+    };
+
+    let eng = engine.as_deref().unwrap_or("mysql");
+    let driver = if eng.contains("postgres") {
+        "pgsql"
+    } else if eng.contains("sqlite") {
+        "sqlite"
+    } else {
+        "mysql"
+    };
+
+    let url = forge_db_manager::AdminerManager::get_adminer_url_with_params(
+        web_port,
+        Some(driver),
+        db_name.as_deref(),
+    );
     forge_supervisor::NativeShell::open_browser(&url).map_err(|e| e.to_string())?;
     Ok(url)
+}
+
+#[tauri::command]
+pub async fn list_all_databases(
+    state: State<'_, AppState>,
+) -> Result<Vec<forge_db_manager::UserDatabaseDto>, String> {
+    let db_lock = state.db_manager.read().await;
+    Ok(db_lock.list_all_databases().await)
+}
+
+#[tauri::command]
+pub async fn delete_database(
+    state: State<'_, AppState>,
+    engine: String,
+    db_name: String,
+) -> Result<bool, String> {
+    let db_lock = state.db_manager.read().await;
+    db_lock
+        .delete_database(&engine, &db_name)
+        .await
+        .map(|_| true)
 }
 
 #[tauri::command]
@@ -875,6 +938,8 @@ pub async fn create_database(
     let eng = engine.unwrap_or_else(|| "mariadb".to_string());
     if eng == "mariadb" || eng == "mysql" {
         let _ = state.supervisor.start_service("mariadb").await;
+    } else if eng == "postgresql" || eng == "postgres" {
+        let _ = state.supervisor.start_service("postgresql").await;
     } else if eng == "mongodb" || eng == "mongo" {
         let _ = state.supervisor.start_service("mongodb").await;
     }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type {
-    DetectedProject, LogMessage, PortCheckResult, ServiceItem, SiteItem, TabType, UpdateCheck,
+    DetectedProject, LogMessage, PortCheckResult, ServiceItem, SiteItem, TabType, UpdateCheck, UserDatabaseItem,
   } from "./types";
   import { INITIAL_SERVICES, INITIAL_SITES, INITIAL_LOGS } from "./lib/constants";
   import {
@@ -10,10 +10,11 @@
     detectProject, scanWorkspace, fetchServices, fetchSites, fetchMissingHosts, fetchLogs,
     fetchPortConflicts, startService, stopService, toggleAllServices, addVirtualHost,
     deleteVirtualHost, updateServicePort, setRuntimeVersion, autoRegisterProject, createDb,
-    openProjectTerminal,
+    fetchAllDatabases, deleteDb, openProjectTerminal,
   } from "./lib/actions";
   import CompactCockpit from "./components/CompactCockpit.svelte";
   import SitesTab from "./components/tabs/SitesTab.svelte";
+  import DatabasesTab from "./components/tabs/DatabasesTab.svelte";
   import RuntimesTab from "./components/tabs/RuntimesTab.svelte";
   import LogsTab from "./components/tabs/LogsTab.svelte";
   import TerminalTab from "./components/tabs/TerminalTab.svelte";
@@ -29,7 +30,7 @@
   let detectedProjectItem = $state<DetectedProject | null>(null), domainSuffix = $state("test"), isScanningWorkspace = $state(false), missingHosts = $state<string[]>([]), isSyncingHosts = $state(false);
   let showUpdateModal = $state(false), isCheckingUpdate = $state(false), updateStatus = $state<UpdateCheck | null>(null), showDatabaseModal = $state(false), showDeleteModal = $state(false), siteToDelete = $state<SiteItem | null>(null);
   let logFilter = $state<string>("all"), logSearch = $state("");
-  let services = $state<ServiceItem[]>(INITIAL_SERVICES), sites = $state<SiteItem[]>(INITIAL_SITES), logs = $state<LogMessage[]>(INITIAL_LOGS);
+  let services = $state<ServiceItem[]>(INITIAL_SERVICES), sites = $state<SiteItem[]>(INITIAL_SITES), logs = $state<LogMessage[]>(INITIAL_LOGS), databases = $state<UserDatabaseItem[]>([]);
   let runningCount = $derived(services.filter((s) => s.status === "running").length);
   let stoppedCount = $derived(services.filter((s) => s.status !== "running").length);
   let activePhpVersion = $state("8.3.16"), activeNodeVersion = $state("22.14.0"), activePythonVersion = $state("3.12.9"), activeRubyVersion = $state("3.3.7");
@@ -129,9 +130,35 @@
   async function handleCreateDatabase(dbName: string, engine?: string): Promise<void> {
     try {
       await createDb(dbName, engine);
+      databases = await fetchAllDatabases();
       showToast(`Database '${dbName}' created successfully!`);
     } catch (err: any) {
       showToast(`Failed to create database: ${err}`);
+    }
+  }
+
+  async function handleDeleteDatabase(engine: string, name: string): Promise<void> {
+    try {
+      await deleteDb(engine, name);
+      databases = await fetchAllDatabases();
+      showToast(`Database '${name}' removed.`);
+    } catch (err: any) {
+      showToast(`Failed to delete database: ${err}`);
+    }
+  }
+
+  async function handleOpenAdminerWithParams(engine?: string, dbName?: string): Promise<void> {
+    const caddySvc = services.find((s) => s.id === "caddy");
+    const phpSvc = services.find((s) => s.id === "php");
+    let needed = false;
+    if (caddySvc && caddySvc.status !== "running") { await startService("caddy"); needed = true; }
+    if (phpSvc && phpSvc.status !== "running") { await startService("php"); needed = true; }
+    if (needed) { await new Promise((r) => setTimeout(r, 600)); await fetchBackendState(false); }
+    try {
+      const url = await openAdminer(engine, dbName);
+      if (url) showToast(`Adminer opened: ${url}`);
+    } catch (err: any) {
+      showToast(`Failed to open Adminer: ${err}`);
     }
   }
 
@@ -198,6 +225,8 @@
     }
     const backendSites = await fetchSites();
     if (backendSites) sites = backendSites;
+    const backendDatabases = await fetchAllDatabases();
+    if (backendDatabases) databases = backendDatabases;
     const missing = await fetchMissingHosts();
     if (missing) missingHosts = missing;
     const backendLogs = await fetchLogs(100);
@@ -330,14 +359,9 @@
 
 <div class="w-screen h-screen flex flex-col bg-[#F8F9FA] text-slate-900 overflow-hidden font-sans select-none">
   <TopNav
-    {activeTab}
-    sitesCount={sites.length}
-    {isLoading}
-    {allRunning}
-    onSelectTab={(tab) => (activeTab = tab)}
-    onToggleAll={toggleAll}
-    onOpenUpdateModal={() => (showUpdateModal = true)}
-    onRefresh={() => fetchBackendState(true)}
+    {activeTab} sitesCount={sites.length} databasesCount={databases.length} {isLoading} {allRunning}
+    onSelectTab={(tab) => (activeTab = tab)} onToggleAll={toggleAll}
+    onOpenUpdateModal={() => (showUpdateModal = true)} onRefresh={() => fetchBackendState(true)}
     onOpenSettings={() => (showSettingsModal = true)}
   />
 
@@ -397,6 +421,20 @@
           onDeleteSite={promptDeleteSite}
         />
       </div>
+    {:else if activeTab === "databases"}
+      <div class="w-full p-5 lg:px-8 lg:py-6">
+        <DatabasesTab
+          {databases}
+          {services}
+          onCreateDatabase={handleCreateDatabase}
+          onDeleteDatabase={handleDeleteDatabase}
+          onOpenAdminer={handleOpenAdminerWithParams}
+          onLaunchNative={openDatabaseAction}
+          onToggleService={toggleService}
+          onRefresh={async () => { databases = await fetchAllDatabases(); showToast("Databases list refreshed."); }}
+          onShowToast={showToast}
+        />
+      </div>
     {:else if activeTab === "runtimes"}
       <div class="w-full p-5 lg:px-8 lg:py-6">
         <RuntimesTab
@@ -434,41 +472,21 @@
 </div>
 
 <ModalsContainer
-  {toastMessage}
-  {showAddSiteModal}
-  {showCreateProjectModal}
-  showDeleteSiteModal={showDeleteModal}
-  {siteToDelete}
-  onCloseDeleteSite={() => (showDeleteModal = false)}
-  onConfirmDeleteSite={handleConfirmDelete}
-  {newSitePath}
-  {newSiteDomain}
-  {newSiteType}
-  {newSiteTarget}
-  {domainSuffix}
-  {detectedProjectItem}
-  {showDatabaseModal}
-  {showUpdateModal}
-  {showSettingsModal}
-  {updateStatus}
-  {isCheckingUpdate}
-  onCloseAddSite={() => (showAddSiteModal = false)}
-  onCloseCreateProject={() => (showCreateProjectModal = false)}
-  onRunInTerminal={handleOpenTerminalWithCommand}
-  onScaffoldGui={handleScaffoldGui}
+  {toastMessage} {showAddSiteModal} {showCreateProjectModal} showDeleteSiteModal={showDeleteModal}
+  {siteToDelete} onCloseDeleteSite={() => (showDeleteModal = false)} onConfirmDeleteSite={handleConfirmDelete}
+  {newSitePath} {newSiteDomain} {newSiteType} {newSiteTarget} {domainSuffix} {detectedProjectItem}
+  {showDatabaseModal} {showUpdateModal} {showSettingsModal} {updateStatus} {isCheckingUpdate}
+  onCloseAddSite={() => (showAddSiteModal = false)} onCloseCreateProject={() => (showCreateProjectModal = false)}
+  onRunInTerminal={handleOpenTerminalWithCommand} onScaffoldGui={handleScaffoldGui}
   onPathChange={(p: string) => { newSitePath = p; detectPathFramework(p); }}
   onDomainChange={(d: string) => (newSiteDomain = d)}
   onSuffixChange={(s: string) => { domainSuffix = s; detectPathFramework(newSitePath); }}
-  onTypeChange={(t: string) => (newSiteType = t)}
-  onTargetChange={(t: string) => (newSiteTarget = t)}
-  onSubmitAddSite={handleAddSite}
-  onCloseDatabase={() => (showDatabaseModal = false)}
-  onOpenAdminer={openWebAdminerExplicit}
-  onLaunchNative={launchNativeClientExplicit}
+  onTypeChange={(t: string) => (newSiteType = t)} onTargetChange={(t: string) => (newSiteTarget = t)}
+  onSubmitAddSite={handleAddSite} onCloseDatabase={() => (showDatabaseModal = false)}
+  onOpenAdminer={openWebAdminerExplicit} onLaunchNative={launchNativeClientExplicit}
   onCreateDatabase={handleCreateDatabase}
-  onCopyUrl={() => { navigator.clipboard?.writeText("http://localhost/4forge-adminer/index.php"); showToast("Adminer URL copied to clipboard!"); }}
-  onCloseUpdate={() => (showUpdateModal = false)}
-  onCheckUpdates={checkUpdates}
+  onCopyUrl={() => { navigator.clipboard?.writeText("http://localhost/__4forge/db"); showToast("Adminer URL copied to clipboard!"); }}
+  onCloseUpdate={() => (showUpdateModal = false)} onCheckUpdates={checkUpdates}
   onSaveDomainSuffix={(s: string) => { domainSuffix = s; showToast(`Default domain suffix updated to .${s}`); }}
   onCloseSettings={() => (showSettingsModal = false)}
 />

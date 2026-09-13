@@ -61,6 +61,8 @@ pub fn run() {
             commands::check_hosts_sync,
             commands::sync_windows_hosts,
             commands::create_database,
+            commands::list_all_databases,
+            commands::delete_database,
             commands::open_project_terminal,
             commands::set_window_compact_mode,
             commands::terminal_spawn,

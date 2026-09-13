@@ -24,7 +24,7 @@ pub mod sqlite;
 pub use adminer::{AdminerManager, DatabaseLaunchResult};
 pub use config::{MariaDbConfig, PostgreSqlConfig};
 pub use driver::{DatabaseCommand, DatabaseDriver};
-pub use manager::DatabaseManager;
+pub use manager::{DatabaseManager, UserDatabaseDto};
 pub use mariadb::MariaDbDriver;
 pub use mongodb::MongoDbDriver;
 pub use postgres::PostgreSqlDriver;

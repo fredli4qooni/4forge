@@ -30,47 +30,118 @@ impl AdminerManager {
 error_reporting(E_ALL & ~E_NOTICE);
 ini_set('display_errors', '0');
 
+$driver = isset($_GET['driver']) ? strtolower($_GET['driver']) : 'mysql';
+if ($driver === 'postgres' || $driver === 'postgresql') {
+    $driver = 'pgsql';
+}
+
 $host = isset($_GET['host']) ? $_GET['host'] : '127.0.0.1';
-$port = isset($_GET['port']) ? intval($_GET['port']) : 3306;
-$user = isset($_GET['user']) ? $_GET['user'] : 'root';
+$port = isset($_GET['port']) ? intval($_GET['port']) : ($driver === 'pgsql' ? 5432 : 3306);
+$user = isset($_GET['user']) ? $_GET['user'] : ($driver === 'pgsql' ? 'postgres' : 'root');
 $pass = isset($_GET['pass']) ? $_GET['pass'] : '';
 $db   = isset($_GET['db']) ? $_GET['db'] : '';
 
-$conn = @new mysqli($host, $user, $pass, $db, $port);
-$connected = !$conn->connect_error;
+$pdo = null;
+$mysqli = null;
+$connected = false;
+$conn_error = '';
+$databases = [];
+$tables = [];
 
-$action = isset($_GET['action']) ? $_GET['action'] : 'dashboard';
-$query_result = null;
+try {
+    if ($driver === 'pgsql') {
+        $dsn = "pgsql:host=$host;port=$port;" . (!empty($db) ? "dbname=$db" : "dbname=postgres");
+        $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $connected = true;
+
+        $db_stmt = $pdo->query("SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname");
+        while ($r = $db_stmt->fetch(PDO::FETCH_NUM)) {
+            $databases[] = $r[0];
+        }
+        if (!empty($db)) {
+            $tb_stmt = $pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name");
+            while ($r = $tb_stmt->fetch(PDO::FETCH_NUM)) {
+                $tables[] = $r[0];
+            }
+        }
+    } elseif ($driver === 'sqlite') {
+        $sqlite_file = !empty($db) ? $db : 'C:/4forge/data/sqlite/database.sqlite';
+        $pdo = new PDO("sqlite:$sqlite_file", null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $connected = true;
+        $databases = ['main'];
+        $tb_stmt = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name");
+        while ($r = $tb_stmt->fetch(PDO::FETCH_NUM)) {
+            $tables[] = $r[0];
+        }
+    } else {
+        $driver = 'mysql';
+        if (class_exists('mysqli')) {
+            $mysqli = @new mysqli($host, $user, $pass, $db, $port);
+            if (!$mysqli->connect_error) {
+                $connected = true;
+                $db_res = $mysqli->query("SHOW DATABASES");
+                if ($db_res) {
+                    while ($row = $db_res->fetch_array()) {
+                        $databases[] = $row[0];
+                    }
+                }
+                if (!empty($db)) {
+                    $mysqli->select_db($db);
+                    $tb_res = $mysqli->query("SHOW TABLES");
+                    if ($tb_res) {
+                        while ($row = $tb_res->fetch_array()) {
+                            $tables[] = $row[0];
+                        }
+                    }
+                }
+            } else {
+                $conn_error = $mysqli->connect_error;
+            }
+        } else {
+            $dsn = "mysql:host=$host;port=$port" . (!empty($db) ? ";dbname=$db" : "");
+            $pdo = new PDO($dsn, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $connected = true;
+        }
+    }
+} catch (Exception $e) {
+    $connected = false;
+    $conn_error = $e->getMessage();
+}
+
+$query_result_headers = [];
+$query_result_rows = [];
 $query_error = null;
+$query_affected = null;
 $sql_input = isset($_POST['sql']) ? trim($_POST['sql']) : '';
 
 if ($connected && !empty($sql_input)) {
-    $res = $conn->query($sql_input);
-    if ($res === false) {
-        $query_error = $conn->error;
-    } else {
-        $query_result = $res;
-    }
-}
-
-$databases = [];
-if ($connected) {
-    $db_res = $conn->query("SHOW DATABASES");
-    if ($db_res) {
-        while ($row = $db_res->fetch_array()) {
-            $databases[] = $row[0];
+    try {
+        if ($pdo) {
+            $stmt = $pdo->query($sql_input);
+            if ($stmt) {
+                $query_result_rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if (!empty($query_result_rows)) {
+                    $query_result_headers = array_keys($query_result_rows[0]);
+                }
+            }
+        } elseif ($mysqli) {
+            $res = $mysqli->query($sql_input);
+            if ($res === false) {
+                $query_error = $mysqli->error;
+            } elseif ($res instanceof mysqli_result) {
+                $fields = $res->fetch_fields();
+                foreach ($fields as $f) {
+                    $query_result_headers[] = $f->name;
+                }
+                while ($row = $res->fetch_assoc()) {
+                    $query_result_rows[] = $row;
+                }
+            } else {
+                $query_affected = $mysqli->affected_rows;
+            }
         }
-    }
-}
-
-$tables = [];
-if ($connected && !empty($db)) {
-    $conn->select_db($db);
-    $tb_res = $conn->query("SHOW TABLES");
-    if ($tb_res) {
-        while ($row = $tb_res->fetch_array()) {
-            $tables[] = $row[0];
-        }
+    } catch (Exception $e) {
+        $query_error = $e->getMessage();
     }
 }
 ?>
@@ -89,6 +160,7 @@ if ($connected && !empty($db)) {
             --text-muted: #94A3B8;
             --border-color: #1E293B;
             --accent-cyan: #06B6D4;
+            --accent-blue: #3B82F6;
             --accent-green: #10B981;
             --accent-rose: #F43F5E;
         }
@@ -102,21 +174,42 @@ if ($connected && !empty($db)) {
             overflow: hidden;
         }
         aside {
-            width: 260px;
+            width: 270px;
             background: #0E1524;
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
         }
         .aside-header {
-            padding: 18px 20px;
+            padding: 16px 18px;
             border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            gap: 10px;
         }
         .aside-header h1 { font-size: 15px; font-weight: 700; color: #fff; }
-        .aside-header p { font-size: 11px; color: var(--text-muted); }
+        .aside-header p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .engine-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border-color);
+            background: #090E1A;
+        }
+        .engine-pill {
+            flex: 1;
+            text-align: center;
+            padding: 4px 6px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--text-muted);
+            border: 1px solid transparent;
+        }
+        .engine-pill:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .engine-pill.active {
+            background: rgba(6,182,212,0.15);
+            border-color: rgba(6,182,212,0.3);
+            color: var(--accent-cyan);
+        }
         .db-list { flex: 1; overflow-y: auto; padding: 12px; }
         .db-list h2 { font-size: 11px; text-transform: uppercase; color: var(--text-muted); margin: 8px 8px 6px; letter-spacing: 0.05em; }
         .db-item, .table-item {
@@ -138,12 +231,12 @@ if ($connected && !empty($db)) {
             overflow: hidden;
         }
         header {
-            height: 60px;
+            height: 56px;
             border-bottom: 1px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 24px;
+            padding: 0 20px;
             background: rgba(14,21,36,0.6);
         }
         .status-pill {
@@ -165,15 +258,15 @@ if ($connected && !empty($db)) {
         }
         .content {
             flex: 1;
-            padding: 24px;
+            padding: 20px;
             overflow-y: auto;
         }
         .card {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
+            padding: 18px;
+            margin-bottom: 16px;
         }
         textarea.sql-input {
             width: 100%;
@@ -210,28 +303,31 @@ if ($connected && !empty($db)) {
             border-bottom: 1px solid rgba(255,255,255,0.06);
         }
         table.data-table th { background: #0B101C; color: var(--text-muted); font-size: 11px; text-transform: uppercase; }
-        .meta-tag { font-family: monospace; font-size: 11px; background: #1E293B; padding: 2px 6px; border-radius: 4px; color: var(--accent-cyan); }
+        .meta-tag { font-family: monospace; font-size: 11px; background: #1E293B; padding: 3px 8px; border-radius: 6px; color: var(--accent-cyan); }
     </style>
 </head>
 <body>
     <aside>
         <div class="aside-header">
-            <div>
-                <h1>4Forge Adminer</h1>
-                <p>MariaDB / MySQL Zero-Config</p>
-            </div>
+            <h1>4Forge Adminer</h1>
+            <p><?= strtoupper($driver) ?> Database Manager</p>
+        </div>
+        <div class="engine-tabs">
+            <a href="?driver=mysql" class="engine-pill <?= $driver === 'mysql' ? 'active' : '' ?>">MySQL</a>
+            <a href="?driver=pgsql" class="engine-pill <?= $driver === 'pgsql' ? 'active' : '' ?>">Postgres</a>
+            <a href="?driver=sqlite" class="engine-pill <?= $driver === 'sqlite' ? 'active' : '' ?>">SQLite</a>
         </div>
         <div class="db-list">
             <h2>Databases</h2>
             <?php foreach ($databases as $d): ?>
-                <a href="?host=<?= urlencode($host) ?>&port=<?= $port ?>&user=<?= urlencode($user) ?>&db=<?= urlencode($d) ?>" class="db-item <?= $db === $d ? 'active' : '' ?>">
+                <a href="?driver=<?= urlencode($driver) ?>&host=<?= urlencode($host) ?>&port=<?= $port ?>&user=<?= urlencode($user) ?>&db=<?= urlencode($d) ?>" class="db-item <?= $db === $d ? 'active' : '' ?>">
                     📁 <?= htmlspecialchars($d) ?>
                 </a>
             <?php endforeach; ?>
             <?php if (!empty($tables)): ?>
                 <h2 style="margin-top: 16px;">Tables (<?= htmlspecialchars($db) ?>)</h2>
                 <?php foreach ($tables as $t): ?>
-                    <a href="?host=<?= urlencode($host) ?>&port=<?= $port ?>&user=<?= urlencode($user) ?>&db=<?= urlencode($db) ?>&table=<?= urlencode($t) ?>" class="table-item">
+                    <a href="?driver=<?= urlencode($driver) ?>&host=<?= urlencode($host) ?>&port=<?= $port ?>&user=<?= urlencode($user) ?>&db=<?= urlencode($db) ?>&table=<?= urlencode($t) ?>" class="table-item">
                         📊 <?= htmlspecialchars($t) ?>
                     </a>
                 <?php endforeach; ?>
@@ -241,17 +337,17 @@ if ($connected && !empty($db)) {
 
     <main>
         <header>
-            <div style="display:flex; align-items:center; gap:12px;">
-                <span class="meta-tag"><?= htmlspecialchars($user) ?>@<?= htmlspecialchars($host) ?>:<?= $port ?></span>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span class="meta-tag"><?= strtoupper($driver) ?>: <?= htmlspecialchars($user) ?>@<?= htmlspecialchars($host) ?>:<?= $port ?></span>
                 <?php if (!empty($db)): ?>
                     <span class="meta-tag">db: <?= htmlspecialchars($db) ?></span>
                 <?php endif; ?>
             </div>
             <div>
                 <?php if ($connected): ?>
-                    <span class="status-pill">● Database Connected</span>
+                    <span class="status-pill">● Connected</span>
                 <?php else: ?>
-                    <span class="status-pill error">✕ <?= htmlspecialchars($conn->connect_error) ?></span>
+                    <span class="status-pill error">✕ <?= htmlspecialchars($conn_error ? $conn_error : 'Connection failed') ?></span>
                 <?php endif; ?>
             </div>
         </header>
@@ -267,66 +363,33 @@ if ($connected && !empty($db)) {
                     <div style="margin-top:10px; color:var(--accent-rose); font-size:12px; font-family:monospace;">
                         Error: <?= htmlspecialchars($query_error) ?>
                     </div>
-                <?php elseif ($query_result instanceof mysqli_result): ?>
+                <?php elseif (!empty($query_result_rows)): ?>
                     <div style="margin-top:14px; overflow-x:auto;">
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <?php $fields = $query_result->fetch_fields(); foreach ($fields as $f): ?>
-                                        <th><?= htmlspecialchars($f->name) ?></th>
+                                    <?php foreach ($query_result_headers as $h): ?>
+                                        <th><?= htmlspecialchars($h) ?></th>
                                     <?php endforeach; ?>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php while ($row = $query_result->fetch_assoc()): ?>
+                                <?php foreach ($query_result_rows as $row): ?>
                                     <tr>
                                         <?php foreach ($row as $val): ?>
                                             <td><?= htmlspecialchars($val !== null ? $val : 'NULL') ?></td>
                                         <?php endforeach; ?>
                                     </tr>
-                                <?php endwhile; ?>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
-                <?php elseif ($query_result === true): ?>
+                <?php elseif ($query_affected !== null): ?>
                     <div style="margin-top:10px; color:var(--accent-green); font-size:12px;">
-                        Query executed successfully. Affected rows: <?= $conn->affected_rows ?>
+                        Query executed successfully. Affected rows: <?= $query_affected ?>
                     </div>
                 <?php endif; ?>
             </div>
-
-            <?php if (!empty($_GET['table']) && $connected): 
-                $table_name = preg_replace('/[^a-zA-Z0-9_]/', '', $_GET['table']);
-                $rows = $conn->query("SELECT * FROM `$table_name` LIMIT 50");
-            ?>
-                <div class="card">
-                    <h3 style="font-size:14px; margin-bottom:10px;">Data: <?= htmlspecialchars($table_name) ?> (Limit 50)</h3>
-                    <?php if ($rows && $rows->num_rows > 0): ?>
-                        <div style="overflow-x:auto;">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <?php $fields = $rows->fetch_fields(); foreach ($fields as $f): ?>
-                                            <th><?= htmlspecialchars($f->name) ?></th>
-                                        <?php endforeach; ?>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php while ($r = $rows->fetch_assoc()): ?>
-                                        <tr>
-                                            <?php foreach ($r as $v): ?>
-                                                <td><?= htmlspecialchars($v !== null ? $v : 'NULL') ?></td>
-                                            <?php endforeach; ?>
-                                        </tr>
-                                    <?php endwhile; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <p style="font-size:12px; color:var(--text-muted);">Table is empty.</p>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
         </div>
     </main>
 </body>
@@ -339,17 +402,40 @@ if ($connected && !empty($db)) {
             std::fs::create_dir_all(&adminer_dir)?;
         }
         let index_php = adminer_dir.join("index.php");
-        if !index_php.exists() {
-            std::fs::write(&index_php, Self::ADMINER_PHP_CONTENT)?;
-        }
+        std::fs::write(&index_php, Self::ADMINER_PHP_CONTENT)?;
         Ok(index_php)
     }
 
     pub fn get_adminer_url(web_port: u16) -> String {
-        if web_port == 80 {
+        let valid_port = if web_port == 2019 || web_port == 2020 || web_port == 0 {
+            80
+        } else {
+            web_port
+        };
+        if valid_port == 80 {
             "http://localhost/__4forge/db".to_string()
         } else {
-            format!("http://localhost:{}/__4forge/db", web_port)
+            format!("http://localhost:{}/__4forge/db", valid_port)
+        }
+    }
+
+    pub fn get_adminer_url_with_params(
+        web_port: u16,
+        driver: Option<&str>,
+        db: Option<&str>,
+    ) -> String {
+        let base = Self::get_adminer_url(web_port);
+        let mut params = Vec::new();
+        if let Some(d) = driver {
+            params.push(format!("driver={}", d));
+        }
+        if let Some(name) = db {
+            params.push(format!("db={}", name));
+        }
+        if params.is_empty() {
+            base
+        } else {
+            format!("{}?{}", base, params.join("&"))
         }
     }
 

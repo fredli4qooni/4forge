@@ -100,9 +100,20 @@ impl CaddyConfigGenerator {
     pub fn generate_caddyfile(hosts: &[VirtualHostConfig]) -> String {
         let mut out = String::new();
         out.push_str("{\n    admin 127.0.0.1:2019\n}\n\n");
-        out.push_str(
-            "http://localhost {\n    respond \"4Forge Local Web Server Running\" 200\n}\n\n",
-        );
+        let adminer_root = if let Ok(appdata) = std::env::var("LOCALAPPDATA") {
+            let p = std::path::PathBuf::from(appdata)
+                .join("4Forge")
+                .join("tools")
+                .join("adminer");
+            p.to_string_lossy().replace('\\', "/")
+        } else {
+            "C:/4forge/tools/adminer".to_string()
+        };
+
+        out.push_str(&format!(
+            "http://localhost {{\n    handle_path /__4forge/db* {{\n        root * \"{}\"\n        php_fastcgi 127.0.0.1:9000\n        file_server\n    }}\n    respond \"4Forge Local Web Server Running\" 200\n}}\n\n",
+            adminer_root
+        ));
 
         for host in hosts {
             let normalized_root = host.root_dir.replace('\\', "/");

@@ -1,5 +1,5 @@
 import { invokeTauri } from "./api";
-import type { DatabaseLaunchResult, DetectedProject, LogMessage, PortCheckResult, ServiceItem, SiteItem, UpdateCheck } from "../types";
+import type { DatabaseLaunchResult, DetectedProject, LogMessage, PortCheckResult, ServiceItem, SiteItem, UpdateCheck, UserDatabaseItem } from "../types";
 
 export async function checkSystemUpdates(): Promise<UpdateCheck> {
   const res = await invokeTauri<UpdateCheck>("check_for_updates");
@@ -24,35 +24,36 @@ export async function openUrl(url: string): Promise<void> {
   }
 }
 
-export async function openProjectsFolder(path?: string): Promise<void> {
+export async function openProjectsFolder(customPath?: string): Promise<void> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    await invokeTauri("open_projects_folder", path ? { path } : {});
+    await invokeTauri("open_projects_folder", { path: customPath || null });
   }
 }
 
 export async function openDevTerminal(): Promise<void> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    await invokeTauri("open_system_terminal", {});
+    await invokeTauri("open_system_terminal", { cwd: null });
   }
 }
 
 export async function launchDbManager(engine?: string): Promise<DatabaseLaunchResult | null> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    return await invokeTauri<DatabaseLaunchResult>("launch_database_manager", engine ? { engine } : {});
+    return await invokeTauri<DatabaseLaunchResult>("launch_database_manager", { engine: engine || null });
   }
   return null;
 }
 
-export async function openAdminer(): Promise<string | null> {
+export async function openAdminer(engine?: string, dbName?: string): Promise<string | null> {
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
-    return await invokeTauri<string>("open_adminer_in_browser");
+    return await invokeTauri<string>("open_adminer_in_browser", { engine: engine || null, dbName: dbName || null });
   }
-  window.open("http://localhost/4forge-adminer/index.php", "_blank");
-  return "http://localhost/4forge-adminer/index.php";
+  const url = `http://localhost/__4forge/db${engine ? `?driver=${engine}${dbName ? `&db=${dbName}` : ""}` : ""}`;
+  window.open(url, "_blank");
+  return url;
 }
 
 export async function launchNativeClient(): Promise<boolean> {
@@ -180,6 +181,24 @@ export async function createDb(dbName: string, engine?: string): Promise<boolean
   const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
   if (hasTauri) {
     const res = await invokeTauri<boolean>("create_database", { dbName, engine: engine || "mariadb" });
+    return Boolean(res);
+  }
+  return true;
+}
+
+export async function fetchAllDatabases(): Promise<UserDatabaseItem[]> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    const res = await invokeTauri<UserDatabaseItem[]>("list_all_databases");
+    return res || [];
+  }
+  return [];
+}
+
+export async function deleteDb(engine: string, dbName: string): Promise<boolean> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    const res = await invokeTauri<boolean>("delete_database", { engine, dbName });
     return Boolean(res);
   }
   return true;

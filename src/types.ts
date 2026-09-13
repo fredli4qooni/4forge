@@ -64,8 +64,21 @@ export interface UpdateCheck {
   signature_verified: boolean;
 }
 
-export type TabType = "cockpit" | "dashboard" | "services" | "sites" | "runtimes" | "logs" | "terminal";
+export interface UserDatabaseItem {
+  name: string;
+  engine: string;
+  host: string;
+  port?: number;
+  user?: string;
+  size_bytes?: number;
+  tables_count?: number;
+  status: "running" | "stopped" | "ready";
+  created_at?: string;
+}
+
+export type TabType = "cockpit" | "dashboard" | "services" | "sites" | "databases" | "runtimes" | "logs" | "terminal";
 
 export type ViewMode = "compact" | "expanded";
 
 export type DatabaseEngine = "mariadb" | "mysql" | "postgresql" | "sqlite" | "mongodb";
+

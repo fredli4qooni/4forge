@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Database,
     Globe,
     Layers,
     LayoutDashboard,
@@ -16,6 +17,7 @@
   let {
     activeTab,
     sitesCount = 0,
+    databasesCount = 0,
     isLoading = false,
     allRunning = false,
     onSelectTab,
@@ -26,6 +28,7 @@
   }: {
     activeTab: TabType;
     sitesCount?: number;
+    databasesCount?: number;
     isLoading?: boolean;
     allRunning?: boolean;
     onSelectTab: (tab: TabType) => void;
@@ -70,6 +73,21 @@
         {#if sitesCount > 0}
           <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full {activeTab === 'sites' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-600'}">
             {sitesCount}
+          </span>
+        {/if}
+      </button>
+
+      <button
+        onclick={() => onSelectTab("databases")}
+        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'databases'
+          ? 'bg-white text-slate-900 shadow-xs font-semibold'
+          : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
+      >
+        <Database class="w-3.5 h-3.5 shrink-0 {activeTab === 'databases' ? 'text-[#94380C]' : 'text-slate-400'}" />
+        <span>Databases</span>
+        {#if databasesCount > 0}
+          <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full {activeTab === 'databases' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-600'}">
+            {databasesCount}
           </span>
         {/if}
       </button>
