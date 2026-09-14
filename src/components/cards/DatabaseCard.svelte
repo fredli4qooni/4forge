@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, Copy, ExternalLink, FileText, Globe, Trash2 } from "@lucide/svelte";
+  import { Check, Copy, ExternalLink, FileText, Globe, KeyRound, Trash2 } from "@lucide/svelte";
   import type { UserDatabaseItem } from "../../types";
   import mariaLogo from "../../assets/logos/mysql-logo.svg";
   import postgresLogo from "../../assets/logos/postgresql-logo.svg";
@@ -9,6 +9,7 @@
     db,
     copied = false,
     onCopyEnv,
+    onOpenConnect,
     onOpenAdminer,
     onLaunchNative,
     onRequestDelete,
@@ -16,6 +17,7 @@
     db: UserDatabaseItem;
     copied?: boolean;
     onCopyEnv: (db: UserDatabaseItem) => void;
+    onOpenConnect: (db: UserDatabaseItem) => void;
     onOpenAdminer: (engine: string, name: string) => void;
     onLaunchNative: (engine: string) => void;
     onRequestDelete: (db: UserDatabaseItem) => void;
@@ -136,18 +138,27 @@
       </button>
     </div>
 
-    <button
-      onclick={() => onCopyEnv(db)}
-      class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-2xs"
-      title="Copy .env Configuration"
-    >
-      {#if copied}
-        <Check class="w-3.5 h-3.5 text-emerald-600" />
-        <span class="text-emerald-700 font-semibold">Copied</span>
-      {:else}
-        <Copy class="w-3.5 h-3.5 text-slate-500" />
+    <div class="flex items-center gap-1">
+      <button
+        onclick={() => onCopyEnv(db)}
+        class="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors shadow-2xs"
+        title="Quick Copy Default .env"
+      >
+        {#if copied}
+          <Check class="w-3.5 h-3.5 text-emerald-600" />
+        {:else}
+          <Copy class="w-3.5 h-3.5" />
+        {/if}
+      </button>
+
+      <button
+        onclick={() => onOpenConnect(db)}
+        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors shadow-2xs hover:border-[#94380C]/40 hover:text-[#94380C]"
+        title="Open Connection & .env Helper"
+      >
+        <KeyRound class="w-3.5 h-3.5 text-[#94380C]" />
         <span>.env</span>
-      {/if}
-    </button>
+      </button>
+    </div>
   </div>
 </div>

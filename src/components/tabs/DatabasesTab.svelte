@@ -14,7 +14,9 @@
   import postgresLogo from "../../assets/logos/postgresql-logo.svg";
   import mongoLogo from "../../assets/logos/mongo-logo.svg";
   import DatabaseCard from "../cards/DatabaseCard.svelte";
+  import DatabaseConnectionBanner from "../DatabaseConnectionBanner.svelte";
   import CreateDatabaseModal from "../modals/CreateDatabaseModal.svelte";
+  import ConnectionHelperModal from "../modals/ConnectionHelperModal.svelte";
 
   let {
     databases = [],
@@ -32,7 +34,7 @@
     onCreateDatabase: (name: string, engine: string) => Promise<void>;
     onDeleteDatabase: (engine: string, name: string) => Promise<void>;
     onOpenAdminer: (engine: string, dbName: string) => Promise<void>;
-    onLaunchNative: (engine: string) => Promise<void>;
+    onLaunchNative: (engine: string) => void;
     onToggleService: (serviceId: string) => Promise<void>;
     onRefresh: () => Promise<void>;
     onShowToast: (msg: string) => void;
@@ -41,8 +43,15 @@
   let selectedFilter = $state<string>("all");
   let searchQuery = $state<string>("");
   let showCreateModal = $state(false);
+  let showConnectModal = $state(false);
+  let selectedDbForConnect = $state<UserDatabaseItem | null>(null);
   let copiedDbName = $state<string | null>(null);
   let dbPendingDelete = $state<UserDatabaseItem | null>(null);
+
+  function openConnectModal(db: UserDatabaseItem | null) {
+    selectedDbForConnect = db;
+    showConnectModal = true;
+  }
 
   let filteredDatabases = $derived(
     databases.filter((db) => {
@@ -138,6 +147,11 @@
       </button>
     </div>
   </div>
+
+  <DatabaseConnectionBanner
+    onOpenGeneralConnect={() => openConnectModal(null)}
+    {onShowToast}
+  />
 
   <div class="bg-white rounded-xl border border-slate-200/80 p-3 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
     <div class="flex items-center gap-2 text-slate-500 font-medium">
@@ -299,6 +313,7 @@
           {db}
           copied={copiedDbName === db.name}
           onCopyEnv={copyEnvSnippet}
+          onOpenConnect={(d) => openConnectModal(d)}
           onOpenAdminer={onOpenAdminer}
           onLaunchNative={onLaunchNative}
           onRequestDelete={(item) => (dbPendingDelete = item)}
@@ -312,6 +327,16 @@
   show={showCreateModal}
   onClose={() => (showCreateModal = false)}
   onCreate={onCreateDatabase}
+  {onShowToast}
+/>
+
+<ConnectionHelperModal
+  database={selectedDbForConnect}
+  isOpen={showConnectModal}
+  onClose={() => {
+    showConnectModal = false;
+    selectedDbForConnect = null;
+  }}
   {onShowToast}
 />
 
