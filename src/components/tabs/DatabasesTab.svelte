@@ -8,6 +8,7 @@
     RefreshCw,
     Search,
     Trash2,
+    Users,
     X,
   } from "@lucide/svelte";
   import type { ServiceItem, SiteItem, UserDatabaseItem } from "../../types";
@@ -19,6 +20,7 @@
   import CreateDatabaseModal from "../modals/CreateDatabaseModal.svelte";
   import ConnectionHelperModal from "../modals/ConnectionHelperModal.svelte";
   import BackupRestoreModal from "../modals/BackupRestoreModal.svelte";
+  import DatabaseUsersModal from "../modals/DatabaseUsersModal.svelte";
 
   let {
     databases = [],
@@ -49,6 +51,7 @@
   let showCreateModal = $state(false);
   let showConnectModal = $state(false);
   let showBackupModal = $state(false);
+  let showUsersModal = $state(false);
   let selectedDbForConnect = $state<UserDatabaseItem | null>(null);
   let selectedDbForBackup = $state<UserDatabaseItem | null>(null);
   let copiedDbName = $state<string | null>(null);
@@ -156,6 +159,15 @@
       >
         <Archive class="w-3.5 h-3.5 text-slate-500" />
         <span>Backup & Restore</span>
+      </button>
+
+      <button
+        onclick={() => (showUsersModal = true)}
+        class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
+        title="Manage Database Users & Privileges"
+      >
+        <Users class="w-3.5 h-3.5 text-slate-500" />
+        <span>Users</span>
       </button>
 
       <button
@@ -372,6 +384,13 @@
   }}
   {onShowToast}
   onRefreshDatabases={onRefresh}
+/>
+
+<DatabaseUsersModal
+  {databases}
+  isOpen={showUsersModal}
+  onClose={() => (showUsersModal = false)}
+  {onShowToast}
 />
 
 {#if dbPendingDelete}

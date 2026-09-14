@@ -1641,6 +1641,63 @@ pub async fn import_database(
     })
 }
 
+#[tauri::command]
+pub async fn list_database_users(
+    state: State<'_, AppState>,
+    engine: String,
+) -> Result<Vec<forge_db_manager::DatabaseUserDto>, String> {
+    let db_lock = state.db_manager.read().await;
+    db_lock.list_users(&engine).await
+}
+
+#[tauri::command]
+pub async fn create_database_user(
+    state: State<'_, AppState>,
+    engine: String,
+    username: String,
+    host: String,
+    password: String,
+    privilege_scope: String,
+    target_db: Option<String>,
+) -> Result<(), String> {
+    let db_lock = state.db_manager.read().await;
+    db_lock
+        .create_user(
+            &engine,
+            &username,
+            &host,
+            &password,
+            &privilege_scope,
+            target_db.as_deref(),
+        )
+        .await
+}
+
+#[tauri::command]
+pub async fn update_database_user_password(
+    state: State<'_, AppState>,
+    engine: String,
+    username: String,
+    host: String,
+    new_password: String,
+) -> Result<(), String> {
+    let db_lock = state.db_manager.read().await;
+    db_lock
+        .update_user_password(&engine, &username, &host, &new_password)
+        .await
+}
+
+#[tauri::command]
+pub async fn drop_database_user(
+    state: State<'_, AppState>,
+    engine: String,
+    username: String,
+    host: String,
+) -> Result<(), String> {
+    let db_lock = state.db_manager.read().await;
+    db_lock.drop_user(&engine, &username, &host).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

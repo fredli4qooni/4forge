@@ -35,6 +35,15 @@ pub struct UserDatabaseDto {
     pub created_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DatabaseUserDto {
+    pub username: String,
+    pub host: String,
+    pub engine: String,
+    pub privileges: Vec<String>,
+    pub is_system_account: bool,
+}
+
 #[derive(Default, Clone)]
 pub struct DatabaseManager {
     drivers: HashMap<DatabaseEngine, Arc<dyn DatabaseDriver>>,
@@ -835,6 +844,533 @@ impl DatabaseManager {
         let _ = Self::save_registry(&list);
         Ok(())
     }
+
+    pub async fn list_users(&self, engine: &str) -> Result<Vec<DatabaseUserDto>, String> {
+        let eng = engine.to_lowercase();
+        let extra_dirs = [
+            PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+            PathBuf::from("D:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"),
+        ];
+
+        match eng.as_str() {
+            "mariadb" | "mysql" => {
+                let is_running = Self::check_port_health(3306, 400).await;
+                if !is_running {
+                    return Err("MySQL / MariaDB is not running on port 3306".to_string());
+                }
+
+                let cli_bin = Self::find_executable("mysql", &extra_dirs)
+                    .or_else(|| Self::find_executable("mariadb", &extra_dirs))
+                    .ok_or_else(|| {
+                        "mysql.exe / mariadb.exe binary not found on system PATH or runtimes."
+                            .to_string()
+                    })?;
+
+                let output = tokio::process::Command::new(&cli_bin)
+                    .args([
+                        "-u",
+                        "root",
+                        "-h",
+                        "127.0.0.1",
+                        "--port=3306",
+                        "-N",
+                        "-B",
+                        "-e",
+                        "SELECT User, Host FROM mysql.user WHERE User != '' ORDER BY User ASC;",
+                    ])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to query MySQL users: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("MySQL user query failed: {err}"));
+                }
+
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let mut users = Vec::new();
+
+                for line in stdout.lines() {
+                    let parts: Vec<&str> = line.split('\t').map(|s| s.trim()).collect();
+                    if parts.is_empty() || parts[0].is_empty() {
+                        continue;
+                    }
+                    let username = parts[0].to_string();
+                    let host = if parts.len() > 1 && !parts[1].is_empty() {
+                        parts[1].to_string()
+                    } else {
+                        "%".to_string()
+                    };
+
+                    let is_system_account = username == "root"
+                        || username == "mysql.session"
+                        || username == "mysql.sys"
+                        || username == "mysql.infoschema"
+                        || username == "mariadb.sys";
+
+                    let mut privileges = Vec::new();
+                    let grant_out = tokio::process::Command::new(&cli_bin)
+                        .args([
+                            "-u",
+                            "root",
+                            "-h",
+                            "127.0.0.1",
+                            "--port=3306",
+                            "-N",
+                            "-B",
+                            "-e",
+                            &format!("SHOW GRANTS FOR '{username}'@'{host}';"),
+                        ])
+                        .output()
+                        .await;
+
+                    if let Ok(grants) = grant_out {
+                        if grants.status.success() {
+                            let grants_txt = String::from_utf8_lossy(&grants.stdout);
+                            for g in grants_txt.lines() {
+                                let g_trim = g.trim();
+                                if !g_trim.is_empty() {
+                                    privileges.push(g_trim.to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    users.push(DatabaseUserDto {
+                        username,
+                        host,
+                        engine: "mysql".to_string(),
+                        privileges,
+                        is_system_account,
+                    });
+                }
+
+                Ok(users)
+            }
+            "postgresql" | "postgres" => {
+                let is_running = Self::check_port_health(5432, 400).await;
+                if !is_running {
+                    return Err("PostgreSQL is not running on port 5432".to_string());
+                }
+
+                let psql_bin = Self::find_executable("psql", &extra_dirs).ok_or_else(|| {
+                    "psql.exe binary not found on system PATH or runtimes.".to_string()
+                })?;
+
+                let output = tokio::process::Command::new(&psql_bin)
+                    .args([
+                        "-U",
+                        "postgres",
+                        "-h",
+                        "127.0.0.1",
+                        "-p",
+                        "5432",
+                        "-t",
+                        "-A",
+                        "-F",
+                        "\t",
+                        "-c",
+                        "SELECT rolname, rolsuper, rolcreaterole, rolcreatedb, rolcanlogin FROM pg_roles WHERE rolname NOT LIKE 'pg_%' ORDER BY rolname ASC;",
+                    ])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to query PostgreSQL users: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("PostgreSQL user query failed: {err}"));
+                }
+
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let mut users = Vec::new();
+
+                for line in stdout.lines() {
+                    let parts: Vec<&str> = line.split('\t').map(|s| s.trim()).collect();
+                    if parts.is_empty() || parts[0].is_empty() {
+                        continue;
+                    }
+                    let username = parts[0].to_string();
+                    let is_super = parts.get(1).copied().unwrap_or("f") == "t";
+                    let is_createrole = parts.get(2).copied().unwrap_or("f") == "t";
+                    let is_createdb = parts.get(3).copied().unwrap_or("f") == "t";
+
+                    let mut privileges = Vec::new();
+                    if is_super {
+                        privileges.push("SUPERUSER".to_string());
+                    }
+                    if is_createrole {
+                        privileges.push("CREATEROLE".to_string());
+                    }
+                    if is_createdb {
+                        privileges.push("CREATEDB".to_string());
+                    }
+                    if privileges.is_empty() {
+                        privileges.push("STANDARD USER".to_string());
+                    }
+
+                    let is_system_account = username == "postgres";
+
+                    users.push(DatabaseUserDto {
+                        username,
+                        host: "all".to_string(),
+                        engine: "postgresql".to_string(),
+                        privileges,
+                        is_system_account,
+                    });
+                }
+
+                Ok(users)
+            }
+            "sqlite" | "sqlite3" => Err(
+                "SQLite is a serverless database engine and does not use user accounts."
+                    .to_string(),
+            ),
+            _ => Err(format!(
+                "User management is not supported for engine '{engine}'"
+            )),
+        }
+    }
+
+    pub async fn create_user(
+        &self,
+        engine: &str,
+        username: &str,
+        host: &str,
+        password: &str,
+        privilege_scope: &str,
+        target_db: Option<&str>,
+    ) -> Result<(), String> {
+        let clean_user = username.trim();
+        if clean_user.is_empty() {
+            return Err("Username cannot be empty".to_string());
+        }
+        if !clean_user
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            return Err(
+                "Username must contain only alphanumeric characters and underscores".to_string(),
+            );
+        }
+
+        let eng = engine.to_lowercase();
+        let extra_dirs = [
+            PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+            PathBuf::from("D:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"),
+        ];
+
+        match eng.as_str() {
+            "mariadb" | "mysql" => {
+                let is_running = Self::check_port_health(3306, 400).await;
+                if !is_running {
+                    return Err("MySQL / MariaDB is not running on port 3306".to_string());
+                }
+
+                let cli_bin = Self::find_executable("mysql", &extra_dirs)
+                    .or_else(|| Self::find_executable("mariadb", &extra_dirs))
+                    .ok_or_else(|| {
+                        "mysql.exe / mariadb.exe binary not found on system PATH or runtimes."
+                            .to_string()
+                    })?;
+
+                let clean_host = if host.trim().is_empty() {
+                    "%"
+                } else {
+                    host.trim()
+                };
+                let safe_pw = password.replace('\'', "''");
+
+                let mut query = format!(
+                    "CREATE USER IF NOT EXISTS '{clean_user}'@'{clean_host}' IDENTIFIED BY '{safe_pw}'; "
+                );
+
+                if privilege_scope.eq_ignore_ascii_case("all")
+                    || privilege_scope.eq_ignore_ascii_case("global")
+                {
+                    query.push_str(&format!(
+                        "GRANT ALL PRIVILEGES ON *.* TO '{clean_user}'@'{clean_host}' WITH GRANT OPTION; "
+                    ));
+                } else if privilege_scope.eq_ignore_ascii_case("database") {
+                    if let Some(db) = target_db {
+                        let clean_db = db.trim();
+                        if !clean_db.is_empty() {
+                            query.push_str(&format!(
+                                "GRANT ALL PRIVILEGES ON `{clean_db}`.* TO '{clean_user}'@'{clean_host}'; "
+                            ));
+                        }
+                    }
+                } else if privilege_scope.eq_ignore_ascii_case("readonly") {
+                    query.push_str(&format!(
+                        "GRANT SELECT ON *.* TO '{clean_user}'@'{clean_host}'; "
+                    ));
+                } else {
+                    query.push_str(&format!(
+                        "GRANT ALL PRIVILEGES ON *.* TO '{clean_user}'@'{clean_host}'; "
+                    ));
+                }
+                query.push_str("FLUSH PRIVILEGES;");
+
+                let output = tokio::process::Command::new(&cli_bin)
+                    .args(["-u", "root", "-h", "127.0.0.1", "--port=3306", "-e", &query])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to execute MySQL user creation: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to create MySQL user: {err}"));
+                }
+
+                Ok(())
+            }
+            "postgresql" | "postgres" => {
+                let is_running = Self::check_port_health(5432, 400).await;
+                if !is_running {
+                    return Err("PostgreSQL is not running on port 5432".to_string());
+                }
+
+                let psql_bin = Self::find_executable("psql", &extra_dirs).ok_or_else(|| {
+                    "psql.exe binary not found on system PATH or runtimes.".to_string()
+                })?;
+
+                let safe_pw = password.replace('\'', "''");
+                let mut query =
+                    format!("CREATE ROLE \"{clean_user}\" WITH LOGIN PASSWORD '{safe_pw}'; ");
+
+                if privilege_scope.eq_ignore_ascii_case("all")
+                    || privilege_scope.eq_ignore_ascii_case("global")
+                {
+                    query.push_str(&format!(
+                        "ALTER ROLE \"{clean_user}\" WITH SUPERUSER CREATEDB CREATEROLE; "
+                    ));
+                } else if privilege_scope.eq_ignore_ascii_case("database") {
+                    if let Some(db) = target_db {
+                        let clean_db = db.trim();
+                        if !clean_db.is_empty() {
+                            query.push_str(&format!("GRANT ALL PRIVILEGES ON DATABASE \"{clean_db}\" TO \"{clean_user}\"; "));
+                        }
+                    }
+                }
+
+                let output = tokio::process::Command::new(&psql_bin)
+                    .args([
+                        "-U",
+                        "postgres",
+                        "-h",
+                        "127.0.0.1",
+                        "-p",
+                        "5432",
+                        "-c",
+                        &query,
+                    ])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to execute PostgreSQL role creation: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to create PostgreSQL role: {err}"));
+                }
+
+                Ok(())
+            }
+            _ => Err(format!("Engine '{engine}' does not support creating users")),
+        }
+    }
+
+    pub async fn update_user_password(
+        &self,
+        engine: &str,
+        username: &str,
+        host: &str,
+        new_password: &str,
+    ) -> Result<(), String> {
+        let clean_user = username.trim();
+        if clean_user.is_empty() {
+            return Err("Username cannot be empty".to_string());
+        }
+
+        let eng = engine.to_lowercase();
+        let extra_dirs = [
+            PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+            PathBuf::from("D:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"),
+        ];
+
+        match eng.as_str() {
+            "mariadb" | "mysql" => {
+                let is_running = Self::check_port_health(3306, 400).await;
+                if !is_running {
+                    return Err("MySQL / MariaDB is not running on port 3306".to_string());
+                }
+
+                let cli_bin = Self::find_executable("mysql", &extra_dirs)
+                    .or_else(|| Self::find_executable("mariadb", &extra_dirs))
+                    .ok_or_else(|| {
+                        "mysql.exe / mariadb.exe binary not found on system PATH or runtimes."
+                            .to_string()
+                    })?;
+
+                let clean_host = if host.trim().is_empty() {
+                    "%"
+                } else {
+                    host.trim()
+                };
+                let safe_pw = new_password.replace('\'', "''");
+                let query = format!("ALTER USER '{clean_user}'@'{clean_host}' IDENTIFIED BY '{safe_pw}'; FLUSH PRIVILEGES;");
+
+                let output = tokio::process::Command::new(&cli_bin)
+                    .args(["-u", "root", "-h", "127.0.0.1", "--port=3306", "-e", &query])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to update MySQL password: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to update MySQL password: {err}"));
+                }
+
+                Ok(())
+            }
+            "postgresql" | "postgres" => {
+                let is_running = Self::check_port_health(5432, 400).await;
+                if !is_running {
+                    return Err("PostgreSQL is not running on port 5432".to_string());
+                }
+
+                let psql_bin = Self::find_executable("psql", &extra_dirs).ok_or_else(|| {
+                    "psql.exe binary not found on system PATH or runtimes.".to_string()
+                })?;
+
+                let safe_pw = new_password.replace('\'', "''");
+                let query = format!("ALTER ROLE \"{clean_user}\" WITH PASSWORD '{safe_pw}';");
+
+                let output = tokio::process::Command::new(&psql_bin)
+                    .args([
+                        "-U",
+                        "postgres",
+                        "-h",
+                        "127.0.0.1",
+                        "-p",
+                        "5432",
+                        "-c",
+                        &query,
+                    ])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to update PostgreSQL password: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to update PostgreSQL password: {err}"));
+                }
+
+                Ok(())
+            }
+            _ => Err(format!(
+                "Engine '{engine}' does not support updating passwords"
+            )),
+        }
+    }
+
+    pub async fn drop_user(&self, engine: &str, username: &str, host: &str) -> Result<(), String> {
+        let clean_user = username.trim();
+        if clean_user.is_empty() {
+            return Err("Username cannot be empty".to_string());
+        }
+
+        if clean_user.eq_ignore_ascii_case("root") || clean_user.eq_ignore_ascii_case("postgres") {
+            return Err(
+                "Cannot delete system default administrator user ('root' or 'postgres')."
+                    .to_string(),
+            );
+        }
+
+        let eng = engine.to_lowercase();
+        let extra_dirs = [
+            PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+            PathBuf::from("D:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\laragon\\bin\\mysql"),
+            PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"),
+        ];
+
+        match eng.as_str() {
+            "mariadb" | "mysql" => {
+                let is_running = Self::check_port_health(3306, 400).await;
+                if !is_running {
+                    return Err("MySQL / MariaDB is not running on port 3306".to_string());
+                }
+
+                let cli_bin = Self::find_executable("mysql", &extra_dirs)
+                    .or_else(|| Self::find_executable("mariadb", &extra_dirs))
+                    .ok_or_else(|| {
+                        "mysql.exe / mariadb.exe binary not found on system PATH or runtimes."
+                            .to_string()
+                    })?;
+
+                let clean_host = if host.trim().is_empty() {
+                    "%"
+                } else {
+                    host.trim()
+                };
+                let query =
+                    format!("DROP USER IF EXISTS '{clean_user}'@'{clean_host}'; FLUSH PRIVILEGES;");
+
+                let output = tokio::process::Command::new(&cli_bin)
+                    .args(["-u", "root", "-h", "127.0.0.1", "--port=3306", "-e", &query])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to drop MySQL user: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to drop MySQL user: {err}"));
+                }
+
+                Ok(())
+            }
+            "postgresql" | "postgres" => {
+                let is_running = Self::check_port_health(5432, 400).await;
+                if !is_running {
+                    return Err("PostgreSQL is not running on port 5432".to_string());
+                }
+
+                let psql_bin = Self::find_executable("psql", &extra_dirs).ok_or_else(|| {
+                    "psql.exe binary not found on system PATH or runtimes.".to_string()
+                })?;
+
+                let query = format!("DROP ROLE IF EXISTS \"{clean_user}\";");
+
+                let output = tokio::process::Command::new(&psql_bin)
+                    .args([
+                        "-U",
+                        "postgres",
+                        "-h",
+                        "127.0.0.1",
+                        "-p",
+                        "5432",
+                        "-c",
+                        &query,
+                    ])
+                    .output()
+                    .await
+                    .map_err(|e| format!("Failed to drop PostgreSQL role: {e}"))?;
+
+                if !output.status.success() {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    return Err(format!("Failed to drop PostgreSQL role: {err}"));
+                }
+
+                Ok(())
+            }
+            _ => Err(format!("Engine '{engine}' does not support deleting users")),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -842,6 +1378,35 @@ mod tests {
     use super::*;
     use crate::mariadb::MariaDbDriver;
     use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn test_database_user_validation() {
+        let manager = DatabaseManager::new();
+
+        let res_empty = manager
+            .create_user("mariadb", "", "%", "password", "all", None)
+            .await;
+        assert!(res_empty.is_err());
+        assert!(res_empty.unwrap_err().contains("empty"));
+
+        let res_invalid = manager
+            .create_user("mariadb", "bad user; DROP TABLE", "%", "pass", "all", None)
+            .await;
+        assert!(res_invalid.is_err());
+        assert!(res_invalid.unwrap_err().contains("alphanumeric"));
+
+        let res_drop_root = manager.drop_user("mariadb", "root", "localhost").await;
+        assert!(res_drop_root.is_err());
+        assert!(res_drop_root
+            .unwrap_err()
+            .contains("system default administrator"));
+
+        let res_drop_pg = manager.drop_user("postgres", "postgres", "all").await;
+        assert!(res_drop_pg.is_err());
+        assert!(res_drop_pg
+            .unwrap_err()
+            .contains("system default administrator"));
+    }
 
     #[tokio::test]
     async fn test_database_manager_registration() {

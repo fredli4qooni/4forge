@@ -74,6 +74,10 @@ pub fn run() {
             commands::import_database,
             commands::list_backup_files,
             commands::open_backups_folder,
+            commands::list_database_users,
+            commands::create_database_user,
+            commands::update_database_user_password,
+            commands::drop_database_user,
         ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");

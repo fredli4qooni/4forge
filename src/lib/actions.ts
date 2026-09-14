@@ -328,3 +328,63 @@ export async function openBackupsFolder(): Promise<void> {
   }
 }
 
+export interface DatabaseUserItem {
+  username: string;
+  host: string;
+  engine: string;
+  privileges: string[];
+  is_system_account: boolean;
+}
+
+export async function fetchDatabaseUsers(engine: string): Promise<DatabaseUserItem[]> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    return (await invokeTauri<DatabaseUserItem[]>("list_database_users", { engine })) || [];
+  }
+  return [];
+}
+
+export async function createDatabaseUser(
+  engine: string,
+  username: string,
+  host: string,
+  password: string,
+  privilegeScope: string = "all",
+  targetDb?: string
+): Promise<void> {
+  await invokeTauri("create_database_user", {
+    engine,
+    username,
+    host,
+    password,
+    privilegeScope,
+    targetDb: targetDb || null,
+  });
+}
+
+export async function updateDatabaseUserPassword(
+  engine: string,
+  username: string,
+  host: string,
+  newPassword: string
+): Promise<void> {
+  await invokeTauri("update_database_user_password", {
+    engine,
+    username,
+    host,
+    newPassword,
+  });
+}
+
+export async function dropDatabaseUser(
+  engine: string,
+  username: string,
+  host: string
+): Promise<void> {
+  await invokeTauri("drop_database_user", {
+    engine,
+    username,
+    host,
+  });
+}
+
