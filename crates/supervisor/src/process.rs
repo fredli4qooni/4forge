@@ -68,7 +68,26 @@ impl ActiveProcess {
     pub async fn start(&self) -> Result<(), ProcessError> {
         let mut status_lock = self.status.write().await;
         if *status_lock == ServiceStatus::Running || *status_lock == ServiceStatus::Starting {
-            return Err(ProcessError::AlreadyRunning(self.config.name.clone()));
+            let is_actually_running = {
+                let mut child_guard = self.child.write().await;
+                if let Some(ref mut child) = *child_guard {
+                    match child.try_wait() {
+                        Ok(Some(_)) => {
+                            *child_guard = None;
+                            *self.pid.write().await = None;
+                            false
+                        }
+                        Ok(None) => true,
+                        Err(_) => false,
+                    }
+                } else {
+                    false
+                }
+            };
+
+            if is_actually_running {
+                return Err(ProcessError::AlreadyRunning(self.config.name.clone()));
+            }
         }
 
         *status_lock = ServiceStatus::Starting;
@@ -192,8 +211,17 @@ impl ActiveProcess {
     pub async fn is_alive(&self) -> bool {
         let mut child_guard = self.child.write().await;
         if let Some(ref mut child) = *child_guard {
-            matches!(child.try_wait(), Ok(None))
+            match child.try_wait() {
+                Ok(None) => true,
+                _ => {
+                    *child_guard = None;
+                    *self.pid.write().await = None;
+                    *self.status.write().await = ServiceStatus::Stopped;
+                    false
+                }
+            }
         } else {
+            *self.status.write().await = ServiceStatus::Stopped;
             false
         }
     }

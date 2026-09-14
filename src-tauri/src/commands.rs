@@ -373,16 +373,58 @@ pub async fn start_service(state: State<'_, AppState>, id: String) -> Result<(),
         let sites = state.sites.read().await;
         sync_caddyfile(&sites).await;
     }
-    if (service_id == "mariadb" || service_id == "mysql")
-        && forge_db_manager::DatabaseManager::check_port_health(3306, 100).await
-    {
-        return Ok(());
+
+    if !crate::state::is_runtime_installed(&service_id) {
+        let display_name = match service_id.as_str() {
+            "postgresql" | "postgres" => "PostgreSQL",
+            "redis" => "Redis",
+            "mongodb" | "mongo" => "MongoDB",
+            "mariadb" | "mysql" => "MySQL / MariaDB",
+            "php" => "PHP",
+            "caddy" => "Caddy",
+            _ => &service_id,
+        };
+        return Err(format!(
+            "{} is not installed. Please install it or place its binaries in 'C:\\4forge\\runtimes\\{}'.",
+            display_name, service_id
+        ));
     }
-    state
-        .supervisor
-        .start_service(&service_id)
-        .await
-        .map_err(|e| e.to_string())
+
+    let port_to_check = match service_id.as_str() {
+        "mariadb" | "mysql" => Some(3306),
+        "postgresql" | "postgres" => Some(5432),
+        "redis" => Some(6379),
+        "caddy" => Some(80),
+        _ => None,
+    };
+    if let Some(port) = port_to_check {
+        if forge_db_manager::DatabaseManager::check_port_health(port, 100).await {
+            return Ok(());
+        }
+    }
+
+    let res = state.supervisor.start_service(&service_id).await;
+    match res {
+        Ok(_) => Ok(()),
+        Err(forge_supervisor::ProcessError::AlreadyRunning(_)) => {
+            let is_alive = if let Some(port) = port_to_check {
+                forge_db_manager::DatabaseManager::check_port_health(port, 100).await
+            } else {
+                false
+            };
+            if is_alive {
+                return Ok(());
+            }
+            let _ = stop_service_graceful(&state, &service_id).await;
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            state
+                .supervisor
+                .start_service(&service_id)
+                .await
+                .map_err(|e| e.to_string())
+        }
+        Err(e) => Err(e.to_string()),
+    }
 }
 
 #[tauri::command]
