@@ -1313,6 +1313,334 @@ pub async fn inject_project_database_env(
     })
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BackupFileDto {
+    pub file_name: String,
+    pub file_path: String,
+    pub size_bytes: u64,
+    pub modified_timestamp: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DbBackupResult {
+    pub success: bool,
+    pub file_path: String,
+    pub size_bytes: u64,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DbRestoreResult {
+    pub success: bool,
+    pub db_name: String,
+    pub message: String,
+}
+
+fn get_default_backups_dir() -> std::path::PathBuf {
+    let dir = std::path::PathBuf::from("C:\\4forge\\backups");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+#[tauri::command]
+pub async fn list_backup_files() -> Result<Vec<BackupFileDto>, String> {
+    let dir = get_default_backups_dir();
+    let mut list = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let ext = path
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if ext == "sql" || ext == "dump" || ext == "sqlite" || ext == "tar" || ext == "gz" {
+                    if let Ok(meta) = entry.metadata() {
+                        let size_bytes = meta.len();
+                        let modified_timestamp = meta
+                            .modified()
+                            .ok()
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0);
+                        let file_name = entry.file_name().to_string_lossy().to_string();
+                        let file_path = path.to_string_lossy().to_string();
+                        list.push(BackupFileDto {
+                            file_name,
+                            file_path,
+                            size_bytes,
+                            modified_timestamp,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    list.sort_by_key(|a| std::cmp::Reverse(a.modified_timestamp));
+    Ok(list)
+}
+
+#[tauri::command]
+pub async fn open_backups_folder() -> Result<(), String> {
+    let dir = get_default_backups_dir();
+    #[cfg(windows)]
+    {
+        let _ = tokio::process::Command::new("explorer.exe")
+            .arg(dir)
+            .spawn();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn export_database(
+    engine: String,
+    db_name: String,
+    output_path: Option<String>,
+    include_data: bool,
+) -> Result<DbBackupResult, String> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let default_dir = get_default_backups_dir();
+    let dest_path = if let Some(custom) = output_path {
+        if custom.trim().is_empty() {
+            default_dir.join(format!("{}_{}.sql", db_name, now))
+        } else {
+            std::path::PathBuf::from(custom.trim())
+        }
+    } else {
+        default_dir.join(format!("{}_{}.sql", db_name, now))
+    };
+
+    if let Some(parent) = dest_path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+
+    let eng = engine.to_lowercase();
+    let extra_dirs = [
+        std::path::PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+        std::path::PathBuf::from("D:\\laragon\\bin\\mysql"),
+        std::path::PathBuf::from("C:\\laragon\\bin\\mysql"),
+        std::path::PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"),
+    ];
+
+    if eng.contains("postgres") {
+        let pg_dump = forge_db_manager::DatabaseManager::find_executable("pg_dump", &extra_dirs)
+            .ok_or_else(|| {
+                "pg_dump.exe not found in PostgreSQL runtimes or system PATH".to_string()
+            })?;
+
+        let mut cmd = tokio::process::Command::new(&pg_dump);
+        cmd.args([
+            "-U",
+            "postgres",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            "5432",
+            "-f",
+            &dest_path.to_string_lossy(),
+            &db_name,
+        ]);
+        if !include_data {
+            cmd.arg("--schema-only");
+        }
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| format!("Failed to run pg_dump: {}", e))?;
+        if !output.status.success() {
+            let err_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("pg_dump failed: {}", err_msg));
+        }
+    } else if eng.contains("sqlite") {
+        let sqlite_file =
+            std::path::PathBuf::from(format!("C:\\4forge\\data\\sqlite\\{}.sqlite", db_name));
+        if sqlite_file.is_file() {
+            std::fs::copy(&sqlite_file, &dest_path)
+                .map_err(|e| format!("Failed to copy SQLite database: {}", e))?;
+        } else {
+            return Err(format!(
+                "SQLite database file not found at {}",
+                sqlite_file.display()
+            ));
+        }
+    } else {
+        let dump_bin = forge_db_manager::DatabaseManager::find_executable("mysqldump", &extra_dirs)
+            .or_else(|| {
+                forge_db_manager::DatabaseManager::find_executable("mariadb-dump", &extra_dirs)
+            })
+            .ok_or_else(|| {
+                "mysqldump.exe / mariadb-dump.exe not found in MySQL runtimes or system PATH"
+                    .to_string()
+            })?;
+
+        let mut cmd = tokio::process::Command::new(&dump_bin);
+        cmd.args([
+            "-u",
+            "root",
+            "-h",
+            "127.0.0.1",
+            "--port=3306",
+            "--single-transaction",
+            "--routines",
+            "--triggers",
+            &db_name,
+        ]);
+        if !include_data {
+            cmd.arg("--no-data");
+        }
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute mysqldump: {}", e))?;
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("mysqldump failed: {}", err));
+        }
+        std::fs::write(&dest_path, &output.stdout)
+            .map_err(|e| format!("Failed to write backup file: {}", e))?;
+    }
+
+    let size_bytes = std::fs::metadata(&dest_path).map(|m| m.len()).unwrap_or(0);
+    let msg = format!(
+        "Backup of '{}' ({}) successfully saved to {}",
+        db_name,
+        if include_data { "Full" } else { "Schema Only" },
+        dest_path.display()
+    );
+
+    Ok(DbBackupResult {
+        success: true,
+        file_path: dest_path.to_string_lossy().to_string(),
+        size_bytes,
+        message: msg,
+    })
+}
+
+#[tauri::command]
+pub async fn import_database(
+    engine: String,
+    db_name: String,
+    input_path: String,
+) -> Result<DbRestoreResult, String> {
+    let src_path = std::path::PathBuf::from(input_path.trim());
+    if !src_path.is_file() {
+        return Err(format!("Backup file not found: {}", input_path));
+    }
+
+    let eng = engine.to_lowercase();
+    let extra_dirs = [
+        std::path::PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+        std::path::PathBuf::from("D:\\laragon\\bin\\mysql"),
+        std::path::PathBuf::from("C:\\laragon\\bin\\mysql"),
+        std::path::PathBuf::from("C:\\4forge\\runtimes\\postgresql\\bin"),
+    ];
+
+    if eng.contains("postgres") {
+        let psql_bin = forge_db_manager::DatabaseManager::find_executable("psql", &extra_dirs)
+            .ok_or_else(|| "psql.exe not found in PostgreSQL runtimes or PATH".to_string())?;
+
+        let output = tokio::process::Command::new(&psql_bin)
+            .args([
+                "-U",
+                "postgres",
+                "-h",
+                "127.0.0.1",
+                "-p",
+                "5432",
+                "-d",
+                &db_name,
+                "-f",
+                &src_path.to_string_lossy(),
+            ])
+            .output()
+            .await
+            .map_err(|e| format!("Failed to execute psql restore: {}", e))?;
+
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("psql restore failed: {}", err));
+        }
+    } else if eng.contains("sqlite") {
+        let sqlite_file =
+            std::path::PathBuf::from(format!("C:\\4forge\\data\\sqlite\\{}.sqlite", db_name));
+        if let Some(p) = sqlite_file.parent() {
+            let _ = std::fs::create_dir_all(p);
+        }
+        std::fs::copy(&src_path, &sqlite_file)
+            .map_err(|e| format!("Failed to restore SQLite file: {}", e))?;
+    } else {
+        let mysql_bin = forge_db_manager::DatabaseManager::find_executable("mysql", &extra_dirs)
+            .or_else(|| forge_db_manager::DatabaseManager::find_executable("mariadb", &extra_dirs))
+            .ok_or_else(|| {
+                "mysql.exe / mariadb.exe not found in MySQL runtimes or PATH".to_string()
+            })?;
+
+        #[cfg(windows)]
+        {
+            let cmd_str = format!(
+                "\"{}\" -u root -h 127.0.0.1 --port=3306 \"{}\" < \"{}\"",
+                mysql_bin.display(),
+                db_name,
+                src_path.display()
+            );
+            let output = tokio::process::Command::new("cmd.exe")
+                .args(["/c", &cmd_str])
+                .output()
+                .await
+                .map_err(|e| format!("Failed to run mysql restore: {}", e))?;
+
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("MySQL restore error: {}", err));
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            let sql_content =
+                std::fs::read(&src_path).map_err(|e| format!("Failed to read SQL file: {}", e))?;
+            use std::process::Stdio;
+            use tokio::io::AsyncWriteExt;
+            let mut child = tokio::process::Command::new(&mysql_bin)
+                .args(["-u", "root", "-h", "127.0.0.1", "--port=3306", &db_name])
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .map_err(|e| format!("Failed to spawn mysql: {}", e))?;
+
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin
+                    .write_all(&sql_content)
+                    .await
+                    .map_err(|e| format!("Failed to stream SQL: {}", e))?;
+            }
+            let output = child
+                .wait_with_output()
+                .await
+                .map_err(|e| format!("Restore wait failed: {}", e))?;
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("MySQL restore error: {}", err));
+            }
+        }
+    }
+
+    Ok(DbRestoreResult {
+        success: true,
+        db_name: db_name.clone(),
+        message: format!(
+            "Successfully restored database '{}' from {}",
+            db_name,
+            src_path.display()
+        ),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1360,6 +1688,51 @@ mod tests {
         let backup_content = std::fs::read_to_string(temp_dir.join(".env.backup")).unwrap();
         assert!(backup_content.contains("DB_DATABASE=old_db"));
 
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[tokio::test]
+    async fn test_backup_and_restore_sqlite_workflow() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "4forge_test_db_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let data_dir = std::path::PathBuf::from("C:\\4forge\\data\\sqlite");
+        let _ = std::fs::create_dir_all(&data_dir);
+        let test_db_path = data_dir.join("test_export_db.sqlite");
+        std::fs::write(&test_db_path, "SQLite format 3\0sample_data").unwrap();
+
+        let export_target = temp_dir.join("backup.sqlite");
+        let res = export_database(
+            "sqlite".to_string(),
+            "test_export_db".to_string(),
+            Some(export_target.to_string_lossy().to_string()),
+            true,
+        )
+        .await
+        .unwrap();
+
+        assert!(res.success);
+        assert!(export_target.is_file());
+
+        let restore_res = import_database(
+            "sqlite".to_string(),
+            "test_export_db_restored".to_string(),
+            export_target.to_string_lossy().to_string(),
+        )
+        .await
+        .unwrap();
+
+        assert!(restore_res.success);
+        assert!(data_dir.join("test_export_db_restored.sqlite").is_file());
+
+        let _ = std::fs::remove_file(test_db_path);
+        let _ = std::fs::remove_file(data_dir.join("test_export_db_restored.sqlite"));
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
 }

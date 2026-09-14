@@ -1,5 +1,6 @@
 <script lang="ts">
   import {
+    Archive,
     Database,
     FileText,
     Plus,
@@ -17,6 +18,7 @@
   import DatabaseConnectionBanner from "../DatabaseConnectionBanner.svelte";
   import CreateDatabaseModal from "../modals/CreateDatabaseModal.svelte";
   import ConnectionHelperModal from "../modals/ConnectionHelperModal.svelte";
+  import BackupRestoreModal from "../modals/BackupRestoreModal.svelte";
 
   let {
     databases = [],
@@ -46,13 +48,20 @@
   let searchQuery = $state<string>("");
   let showCreateModal = $state(false);
   let showConnectModal = $state(false);
+  let showBackupModal = $state(false);
   let selectedDbForConnect = $state<UserDatabaseItem | null>(null);
+  let selectedDbForBackup = $state<UserDatabaseItem | null>(null);
   let copiedDbName = $state<string | null>(null);
   let dbPendingDelete = $state<UserDatabaseItem | null>(null);
 
   function openConnectModal(db: UserDatabaseItem | null) {
     selectedDbForConnect = db;
     showConnectModal = true;
+  }
+
+  function openBackupModal(db: UserDatabaseItem | null = null) {
+    selectedDbForBackup = db;
+    showBackupModal = true;
   }
 
   let filteredDatabases = $derived(
@@ -138,6 +147,15 @@
         title="Refresh Databases"
       >
         <RefreshCw class="w-4 h-4" />
+      </button>
+
+      <button
+        onclick={() => openBackupModal(null)}
+        class="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors"
+        title="Database Dump, Export & Import (.sql)"
+      >
+        <Archive class="w-3.5 h-3.5 text-slate-500" />
+        <span>Backup & Restore</span>
       </button>
 
       <button
@@ -319,6 +337,7 @@
           onOpenAdminer={onOpenAdminer}
           onLaunchNative={onLaunchNative}
           onRequestDelete={(item) => (dbPendingDelete = item)}
+          onOpenBackup={(d) => openBackupModal(d)}
         />
       {/each}
     </div>
@@ -341,6 +360,18 @@
     selectedDbForConnect = null;
   }}
   {onShowToast}
+/>
+
+<BackupRestoreModal
+  {databases}
+  initialDb={selectedDbForBackup}
+  isOpen={showBackupModal}
+  onClose={() => {
+    showBackupModal = false;
+    selectedDbForBackup = null;
+  }}
+  {onShowToast}
+  onRefreshDatabases={onRefresh}
 />
 
 {#if dbPendingDelete}

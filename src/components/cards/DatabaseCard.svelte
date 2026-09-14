@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, Copy, ExternalLink, FileText, Globe, KeyRound, Trash2 } from "@lucide/svelte";
+  import { Archive, Check, Copy, ExternalLink, FileText, Globe, KeyRound, Trash2 } from "@lucide/svelte";
   import type { UserDatabaseItem } from "../../types";
   import mariaLogo from "../../assets/logos/mysql-logo.svg";
   import postgresLogo from "../../assets/logos/postgresql-logo.svg";
@@ -13,6 +13,7 @@
     onOpenAdminer,
     onLaunchNative,
     onRequestDelete,
+    onOpenBackup,
   }: {
     db: UserDatabaseItem;
     copied?: boolean;
@@ -21,6 +22,7 @@
     onOpenAdminer: (engine: string, name: string) => void;
     onLaunchNative: (engine: string) => void;
     onRequestDelete: (db: UserDatabaseItem) => void;
+    onOpenBackup?: (db: UserDatabaseItem) => void;
   } = $props();
 
   function getEngineDetails(engine: string) {
@@ -150,6 +152,16 @@
           <Copy class="w-3.5 h-3.5" />
         {/if}
       </button>
+
+      {#if onOpenBackup}
+        <button
+          onclick={() => onOpenBackup(db)}
+          class="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-800 transition-colors shadow-2xs"
+          title="Backup & Restore (.sql)"
+        >
+          <Archive class="w-3.5 h-3.5" />
+        </button>
+      {/if}
 
       <button
         onclick={() => onOpenConnect(db)}

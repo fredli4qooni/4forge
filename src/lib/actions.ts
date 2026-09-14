@@ -280,3 +280,51 @@ export async function injectProjectEnv(
   return await invokeTauri("inject_project_database_env", { projectPath, framework, variables });
 }
 
+export interface BackupFileItem {
+  file_name: string;
+  file_path: string;
+  size_bytes: number;
+  modified_timestamp: number;
+}
+
+export async function exportDatabase(
+  engine: string,
+  dbName: string,
+  outputPath?: string,
+  includeData: boolean = true
+): Promise<{ success: boolean; file_path: string; size_bytes: number; message: string }> {
+  return await invokeTauri("export_database", {
+    engine,
+    dbName,
+    outputPath: outputPath || null,
+    includeData,
+  });
+}
+
+export async function importDatabase(
+  engine: string,
+  dbName: string,
+  inputPath: string
+): Promise<{ success: boolean; db_name: string; message: string }> {
+  return await invokeTauri("import_database", {
+    engine,
+    dbName,
+    inputPath,
+  });
+}
+
+export async function fetchBackupFiles(): Promise<BackupFileItem[]> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    return (await invokeTauri<BackupFileItem[]>("list_backup_files")) || [];
+  }
+  return [];
+}
+
+export async function openBackupsFolder(): Promise<void> {
+  const hasTauri = typeof window !== "undefined" && (Boolean((window as any).__TAURI_INTERNALS__) || Boolean((window as any).__TAURI__));
+  if (hasTauri) {
+    await invokeTauri("open_backups_folder");
+  }
+}
+
