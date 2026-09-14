@@ -19,12 +19,11 @@
   let password = $state("");
   let showPassword = $state(false);
 
-  $effect(() => {
-    if (isOpen) {
-      password = "";
-      showPassword = false;
-    }
-  });
+  function handleClose() {
+    password = "";
+    showPassword = false;
+    onClose();
+  }
 
   function generatePassword() {
     const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*";
@@ -37,10 +36,18 @@
     password = generated;
     showPassword = true;
   }
+
+  function handleSubmit(e: SubmitEvent) {
+    e.preventDefault();
+    onSave(password);
+  }
 </script>
 
 {#if isOpen && user}
-  <div class="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+  <div
+    class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+    style="z-index: 70;"
+  >
     <div class="bg-white border border-slate-200 w-full max-w-sm rounded-xl p-5 shadow-2xl space-y-4 text-slate-900">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -53,66 +60,70 @@
           </div>
         </div>
         <button
-          onclick={onClose}
+          type="button"
+          onclick={handleClose}
           class="p-1 text-slate-400 hover:text-slate-600 rounded"
         >
           <X class="w-3.5 h-3.5" />
         </button>
       </div>
 
-      <div class="space-y-1">
-        <div class="flex items-center justify-between">
-          <label for="change-password-input" class="block text-[11px] font-medium text-slate-700">New Password</label>
-          <button
-            type="button"
-            onclick={generatePassword}
-            class="text-[10px] font-medium text-[#94380C] hover:underline"
-          >
-            Generate
-          </button>
+      <form onsubmit={handleSubmit} class="space-y-4">
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label for="change-password-input" class="block text-[11px] font-medium text-slate-700">New Password</label>
+            <button
+              type="button"
+              onclick={generatePassword}
+              class="text-[10px] font-medium text-[#94380C] hover:underline"
+            >
+              Generate
+            </button>
+          </div>
+          <div class="relative">
+            <input
+              id="change-password-input"
+              type={showPassword ? "text" : "password"}
+              bind:value={password}
+              placeholder="New password"
+              class="w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:ring-2 focus:ring-[#94380C]/20 focus:border-[#94380C] outline-hidden"
+            />
+            <button
+              type="button"
+              onclick={() => (showPassword = !showPassword)}
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            >
+              {#if showPassword}
+                <EyeOff class="w-3.5 h-3.5" />
+              {:else}
+                <Eye class="w-3.5 h-3.5" />
+              {/if}
+            </button>
+          </div>
         </div>
-        <div class="relative">
-          <input
-            id="change-password-input"
-            type={showPassword ? "text" : "password"}
-            bind:value={password}
-            placeholder="New password"
-            class="w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono text-slate-900 focus:ring-2 focus:ring-[#94380C]/20 focus:border-[#94380C] outline-hidden"
-          />
+
+        <div class="flex items-center justify-end gap-2 pt-2">
           <button
             type="button"
-            onclick={() => (showPassword = !showPassword)}
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            onclick={handleClose}
+            class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
           >
-            {#if showPassword}
-              <EyeOff class="w-3.5 h-3.5" />
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isUpdating}
+            class="px-3 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1"
+          >
+            {#if isUpdating}
+              <RefreshCw class="w-3 h-3 animate-spin" />
+              <span>Updating...</span>
             {:else}
-              <Eye class="w-3.5 h-3.5" />
+              <span>Save Password</span>
             {/if}
           </button>
         </div>
-      </div>
-
-      <div class="flex items-center justify-end gap-2 pt-2">
-        <button
-          onclick={onClose}
-          class="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50"
-        >
-          Cancel
-        </button>
-        <button
-          onclick={() => onSave(password)}
-          disabled={isUpdating}
-          class="px-3 py-1.5 rounded-lg bg-[#94380C] hover:bg-[#7C2D12] text-white text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center gap-1"
-        >
-          {#if isUpdating}
-            <RefreshCw class="w-3 h-3 animate-spin" />
-            <span>Updating...</span>
-          {:else}
-            <span>Save Password</span>
-          {/if}
-        </button>
-      </div>
+      </form>
     </div>
   </div>
 {/if}

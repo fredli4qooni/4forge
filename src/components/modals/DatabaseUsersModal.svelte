@@ -343,7 +343,10 @@
 />
 
 {#if userPendingDelete}
-  <div class="fixed inset-0 z-60 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+  <div
+    class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+    style="z-index: 70;"
+  >
     <div class="bg-white border border-slate-200 w-full max-w-sm rounded-xl p-5 shadow-2xl space-y-4 text-slate-900">
       <div class="w-10 h-10 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
         <Trash2 class="w-5 h-5" />
