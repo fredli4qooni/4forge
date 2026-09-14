@@ -69,6 +69,7 @@ pub fn run() {
             commands::terminal_write,
             commands::terminal_resize,
             commands::terminal_kill,
+            commands::inject_project_database_env,
         ])
         .run(tauri::generate_context!())
         .expect("error while running 4Forge application");

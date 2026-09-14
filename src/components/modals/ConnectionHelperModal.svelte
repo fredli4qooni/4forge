@@ -7,19 +7,25 @@
     Eye,
     EyeOff,
     FileCode,
+    FolderGit2,
     KeyRound,
+    RefreshCw,
+    Sparkles,
     Terminal,
     X,
   } from "@lucide/svelte";
-  import type { UserDatabaseItem } from "../../types";
+  import type { SiteItem, UserDatabaseItem } from "../../types";
+  import { injectProjectEnv } from "../../lib/actions";
 
   let {
     database = null,
+    sites = [],
     isOpen = false,
     onClose,
     onShowToast,
   }: {
     database: UserDatabaseItem | null;
+    sites?: SiteItem[];
     isOpen: boolean;
     onClose: () => void;
     onShowToast: (msg: string) => void;
@@ -30,6 +36,9 @@
   let activeTab = $state<FrameworkKey>("laravel");
   let showPassword = $state<boolean>(false);
   let copied = $state<boolean>(false);
+  let selectedProjectPath = $state<string>("");
+  let isInjecting = $state<boolean>(false);
+  let injectSuccess = $state<boolean>(false);
 
   let customHost = $state<string>("127.0.0.1");
   let customPort = $state<string>("");
@@ -140,6 +149,74 @@
     setTimeout(() => {
       copied = false;
     }, 2000);
+  }
+
+  async function handleInjectEnv() {
+    if (!selectedProjectPath) {
+      onShowToast("Please select a target project first");
+      return;
+    }
+    const host = customHost.trim() || "127.0.0.1";
+    const port = customPort.trim() || (isPostgres ? "5432" : isMongo ? "27017" : "3306");
+    const user = customUser.trim() || (isPostgres ? "postgres" : "root");
+    const pass = customPassword;
+    const db = customDbName.trim() || "app_db";
+
+    let vars: Record<string, string> = {};
+    if (activeTab === "laravel") {
+      if (isSqlite) {
+        vars = {
+          DB_CONNECTION: "sqlite",
+          DB_DATABASE: database?.host || `C:/4forge/data/sqlite/${db}.sqlite`,
+        };
+      } else if (isMongo) {
+        const auth = user ? `${user}:${pass}@` : "";
+        vars = {
+          DB_CONNECTION: "mongodb",
+          MONGO_URI: `mongodb://${auth}${host}:${port}/${db}`,
+          MONGO_DB: db,
+        };
+      } else {
+        vars = {
+          DB_CONNECTION: isPostgres ? "pgsql" : "mysql",
+          DB_HOST: host,
+          DB_PORT: port,
+          DB_DATABASE: db,
+          DB_USERNAME: user,
+          DB_PASSWORD: pass,
+        };
+      }
+    } else {
+      let url = "";
+      if (isSqlite) {
+        url = `file:./${db}.sqlite`;
+      } else if (isMongo) {
+        const auth = user ? `${user}:${pass}@` : "";
+        url = `mongodb://${auth}${host}:${port}/${db}?authSource=admin`;
+      } else {
+        const proto = isPostgres ? "postgresql" : "mysql";
+        const auth = pass ? `${user}:${pass}` : `${user}:`;
+        const schema = isPostgres ? "?schema=public" : "";
+        url = `${proto}://${auth}@${host}:${port}/${db}${schema}`;
+      }
+      vars = { DATABASE_URL: `"${url}"` };
+    }
+
+    try {
+      isInjecting = true;
+      await injectProjectEnv(selectedProjectPath, activeTab, vars);
+      injectSuccess = true;
+      const site = sites.find((s) => s.path === selectedProjectPath);
+      const name = site ? site.domain : selectedProjectPath;
+      onShowToast(`Injected database config into '${name}' (.env.backup created)`);
+      setTimeout(() => {
+        injectSuccess = false;
+      }, 3000);
+    } catch (e: any) {
+      onShowToast(`Failed to inject into .env: ${e?.message || e}`);
+    } finally {
+      isInjecting = false;
+    }
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -322,6 +399,52 @@
           <div class="relative bg-slate-900 rounded-xl p-4 border border-slate-800 overflow-hidden font-mono text-xs shadow-inner">
             <pre class="text-slate-100 whitespace-pre-wrap break-all select-all font-mono leading-relaxed">{snippet}</pre>
           </div>
+        </div>
+
+        <div class="bg-gradient-to-r from-slate-50 via-amber-50/20 to-orange-50/40 border border-slate-200/90 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <FolderGit2 class="w-4 h-4 text-[#94380C]" />
+              <span class="text-xs font-bold text-slate-800">Inject Directly into Workspace Project</span>
+            </div>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Auto-Backup (.env.backup)
+            </span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <select
+              bind:value={selectedProjectPath}
+              class="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-xs focus:ring-2 focus:ring-[#94380C]/20 focus:border-[#94380C] outline-hidden"
+            >
+              <option value="">Select a detected project ({sites.length} available)...</option>
+              {#each sites as site (site.domain)}
+                <option value={site.path}>{site.domain} ({site.runtime} - {site.path})</option>
+              {/each}
+            </select>
+
+            <button
+              onclick={handleInjectEnv}
+              disabled={!selectedProjectPath || isInjecting}
+              class="flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white text-xs font-semibold shadow-xs transition-colors shrink-0"
+            >
+              {#if isInjecting}
+                <RefreshCw class="w-3.5 h-3.5 animate-spin" />
+                <span>Injecting...</span>
+              {:else if injectSuccess}
+                <Check class="w-3.5 h-3.5 text-emerald-400" />
+                <span>Injected!</span>
+              {:else}
+                <Sparkles class="w-3.5 h-3.5 text-amber-400" />
+                <span>Inject to .env</span>
+              {/if}
+            </button>
+          </div>
+          {#if selectedProjectPath}
+            <p class="text-[10.5px] text-slate-500 font-mono truncate" title={selectedProjectPath}>
+              Target: {selectedProjectPath}\.env
+            </p>
+          {/if}
         </div>
       </div>
 

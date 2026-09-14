@@ -272,3 +272,11 @@ export async function killTerminal(sessionId: string): Promise<void> {
   }
 }
 
+export async function injectProjectEnv(
+  projectPath: string,
+  framework: string,
+  variables: Record<string, string>
+): Promise<{ success: boolean; env_path: string; backup_path?: string; updated_keys: string[]; message: string }> {
+  return await invokeTauri("inject_project_database_env", { projectPath, framework, variables });
+}
+

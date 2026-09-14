@@ -432,6 +432,7 @@
         <DatabasesTab
           {databases}
           {services}
+          {sites}
           onCreateDatabase={handleCreateDatabase}
           onDeleteDatabase={handleDeleteDatabase}
           onOpenAdminer={handleOpenAdminerWithParams}

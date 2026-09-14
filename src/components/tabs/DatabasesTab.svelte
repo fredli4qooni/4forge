@@ -9,7 +9,7 @@
     Trash2,
     X,
   } from "@lucide/svelte";
-  import type { ServiceItem, UserDatabaseItem } from "../../types";
+  import type { ServiceItem, SiteItem, UserDatabaseItem } from "../../types";
   import mariaLogo from "../../assets/logos/mysql-logo.svg";
   import postgresLogo from "../../assets/logos/postgresql-logo.svg";
   import mongoLogo from "../../assets/logos/mongo-logo.svg";
@@ -21,6 +21,7 @@
   let {
     databases = [],
     services = [],
+    sites = [],
     onCreateDatabase,
     onDeleteDatabase,
     onOpenAdminer,
@@ -31,6 +32,7 @@
   }: {
     databases: UserDatabaseItem[];
     services: ServiceItem[];
+    sites: SiteItem[];
     onCreateDatabase: (name: string, engine: string) => Promise<void>;
     onDeleteDatabase: (engine: string, name: string) => Promise<void>;
     onOpenAdminer: (engine: string, dbName: string) => Promise<void>;
@@ -332,6 +334,7 @@
 
 <ConnectionHelperModal
   database={selectedDbForConnect}
+  {sites}
   isOpen={showConnectModal}
   onClose={() => {
     showConnectModal = false;

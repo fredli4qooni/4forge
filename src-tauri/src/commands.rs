@@ -1209,3 +1209,157 @@ pub async fn terminal_resize(
 pub async fn terminal_kill(state: State<'_, AppState>, session_id: String) -> Result<(), String> {
     state.pty_manager.kill_session(&session_id)
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EnvInjectionResult {
+    pub success: bool,
+    pub env_path: String,
+    pub backup_path: Option<String>,
+    pub updated_keys: Vec<String>,
+    pub message: String,
+}
+
+#[tauri::command]
+pub async fn inject_project_database_env(
+    project_path: String,
+    framework: String,
+    variables: std::collections::HashMap<String, String>,
+) -> Result<EnvInjectionResult, String> {
+    let dir = std::path::PathBuf::from(&project_path);
+    if !dir.is_dir() {
+        return Err(format!(
+            "Project directory does not exist: {}",
+            project_path
+        ));
+    }
+
+    let env_path = dir.join(".env");
+    let env_example = dir.join(".env.example");
+
+    let mut backup_path_str = None;
+
+    if !env_path.is_file() && env_example.is_file() {
+        let _ = std::fs::copy(&env_example, &env_path);
+    }
+
+    let original_content = if env_path.is_file() {
+        let backup_path = dir.join(".env.backup");
+        let _ = std::fs::copy(&env_path, &backup_path);
+        backup_path_str = Some(backup_path.to_string_lossy().to_string());
+        std::fs::read_to_string(&env_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let use_crlf = original_content.contains("\r\n");
+    let newline = if use_crlf { "\r\n" } else { "\n" };
+
+    let mut lines: Vec<String> = original_content.lines().map(|s| s.to_string()).collect();
+    let mut updated_keys = Vec::new();
+
+    for line in lines.iter_mut() {
+        let trimmed = line.trim();
+        for (k, v) in &variables {
+            let active_prefix = format!("{}=", k);
+            let comment_prefix1 = format!("# {}=", k);
+            let comment_prefix2 = format!("#{}=", k);
+
+            if trimmed.starts_with(&active_prefix)
+                || trimmed.starts_with(&comment_prefix1)
+                || trimmed.starts_with(&comment_prefix2)
+            {
+                *line = format!("{}={}", k, v);
+                if !updated_keys.contains(k) {
+                    updated_keys.push(k.clone());
+                }
+                break;
+            }
+        }
+    }
+
+    let mut missing_lines = Vec::new();
+    for (k, v) in &variables {
+        if !updated_keys.contains(k) {
+            missing_lines.push(format!("{}={}", k, v));
+            updated_keys.push(k.clone());
+        }
+    }
+
+    if !missing_lines.is_empty() {
+        if !lines.is_empty() {
+            lines.push(String::new());
+            lines.push("# Configured by 4Forge".to_string());
+        }
+        lines.extend(missing_lines);
+    }
+
+    let mut final_content = lines.join(newline);
+    final_content.push_str(newline);
+
+    std::fs::write(&env_path, final_content).map_err(|e| format!("Failed to write .env: {}", e))?;
+
+    let msg = format!(
+        "Successfully injected {} environment variable(s) into project ({})",
+        updated_keys.len(),
+        framework
+    );
+
+    Ok(EnvInjectionResult {
+        success: true,
+        env_path: env_path.to_string_lossy().to_string(),
+        backup_path: backup_path_str,
+        updated_keys,
+        message: msg,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn test_inject_project_database_env_workflow() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "4forge_test_env_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+        ));
+        let _ = std::fs::create_dir_all(&temp_dir);
+
+        let env_file = temp_dir.join(".env");
+        let initial_env = "APP_NAME=MyApp\nAPP_KEY=base64:secret\n# DB_HOST=127.0.0.1\nDB_DATABASE=old_db\nDB_USERNAME=old_user\n";
+        std::fs::write(&env_file, initial_env).unwrap();
+
+        let mut vars = HashMap::new();
+        vars.insert("DB_DATABASE".to_string(), "my_new_app".to_string());
+        vars.insert("DB_USERNAME".to_string(), "custom_admin".to_string());
+        vars.insert("DB_PASSWORD".to_string(), "p@ssword123".to_string());
+        vars.insert("DB_HOST".to_string(), "127.0.0.1".to_string());
+
+        let res = inject_project_database_env(
+            temp_dir.to_string_lossy().to_string(),
+            "laravel".to_string(),
+            vars,
+        )
+        .await
+        .unwrap();
+
+        assert!(res.success);
+        assert!(temp_dir.join(".env.backup").is_file());
+
+        let updated_content = std::fs::read_to_string(&env_file).unwrap();
+        assert!(updated_content.contains("APP_NAME=MyApp"));
+        assert!(updated_content.contains("DB_DATABASE=my_new_app"));
+        assert!(updated_content.contains("DB_USERNAME=custom_admin"));
+        assert!(updated_content.contains("DB_PASSWORD=p@ssword123"));
+        assert!(updated_content.contains("DB_HOST=127.0.0.1"));
+
+        let backup_content = std::fs::read_to_string(temp_dir.join(".env.backup")).unwrap();
+        assert!(backup_content.contains("DB_DATABASE=old_db"));
+
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+}
