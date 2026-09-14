@@ -104,7 +104,7 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
     };
 
     let (caddy_st, caddy_pid) = get_status("caddy");
-    let (mut mariadb_st, mariadb_pid) = get_status("mariadb");
+    let (mariadb_st, mariadb_pid) = get_status("mariadb");
     let (_, postgresql_pid) = get_status("postgresql");
     let (_, redis_pid) = get_status("redis");
     let (php_st, php_pid) = get_status("php");
@@ -114,23 +114,28 @@ pub async fn get_services(state: State<'_, AppState>) -> Result<Vec<ServiceItemD
     let pg_healthy = forge_db_manager::DatabaseManager::check_port_health(5432, 150).await;
     let redis_healthy = forge_db_manager::DatabaseManager::check_port_health(6379, 150).await;
 
-    if maria_healthy {
-        mariadb_st = "running".to_string();
-    } else if mariadb_st == "running" && !crate::state::is_runtime_installed("mariadb") {
-        mariadb_st = "stopped".to_string();
-    }
+    let mariadb_st = if maria_healthy {
+        "running".to_string()
+    } else if mariadb_st == "starting" {
+        "starting".to_string()
+    } else {
+        "stopped".to_string()
+    };
+    let mariadb_pid = if maria_healthy { mariadb_pid } else { None };
 
     let postgresql_st = if pg_healthy {
         "running".to_string()
     } else {
         "stopped".to_string()
     };
+    let postgresql_pid = if pg_healthy { postgresql_pid } else { None };
 
     let redis_st = if redis_healthy {
         "running".to_string()
     } else {
         "stopped".to_string()
     };
+    let redis_pid = if redis_healthy { redis_pid } else { None };
 
     let list = vec![
         ServiceItemDto {
@@ -223,35 +228,173 @@ async fn sync_caddyfile_and_reload(sites: &[forge_caddy_config::VirtualHostConfi
     }
 }
 
+async fn stop_service_graceful(state: &AppState, id: &str) -> Result<(), String> {
+    let service_id = id.to_lowercase();
+    let _ = state.supervisor.stop_service(&service_id).await;
+
+    match service_id.as_str() {
+        "mariadb" | "mysql" => {
+            let extra_dirs = [
+                std::path::PathBuf::from("C:\\4forge\\runtimes\\mariadb\\bin"),
+                std::path::PathBuf::from("D:\\laragon\\bin\\mysql"),
+                std::path::PathBuf::from("C:\\laragon\\bin\\mysql"),
+            ];
+            if let Some(admin) =
+                forge_db_manager::DatabaseManager::find_executable("mysqladmin", &extra_dirs)
+                    .or_else(|| {
+                        forge_db_manager::DatabaseManager::find_executable(
+                            "mariadb-admin",
+                            &extra_dirs,
+                        )
+                    })
+            {
+                let _ = tokio::time::timeout(
+                    std::time::Duration::from_millis(2000),
+                    tokio::process::Command::new(&admin)
+                        .args(["-u", "root", "-h", "127.0.0.1", "--port=3306", "shutdown"])
+                        .output(),
+                )
+                .await;
+            }
+
+            for _ in 0..10 {
+                if !forge_db_manager::DatabaseManager::check_port_health(3306, 100).await {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+            }
+
+            if forge_db_manager::DatabaseManager::check_port_health(3306, 100).await {
+                #[cfg(windows)]
+                {
+                    let _ = tokio::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/IM", "mysqld.exe"])
+                        .output()
+                        .await;
+                    let _ = tokio::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/IM", "mariadbd.exe"])
+                        .output()
+                        .await;
+                    if forge_db_manager::DatabaseManager::check_port_health(3306, 100).await {
+                        let _ = tokio::process::Command::new("powershell")
+                            .args([
+                                "-NoProfile",
+                                "-Command",
+                                "Get-NetTCPConnection -LocalPort 3306 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }",
+                            ])
+                            .output()
+                            .await;
+                    }
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+        "postgresql" | "postgres" => {
+            let extra_dirs = [std::path::PathBuf::from(
+                "C:\\4forge\\runtimes\\postgresql\\bin",
+            )];
+            if let Some(pg_ctl) =
+                forge_db_manager::DatabaseManager::find_executable("pg_ctl", &extra_dirs)
+            {
+                let _ = tokio::process::Command::new(&pg_ctl)
+                    .args(["stop", "-D", "C:\\4forge\\data\\postgresql", "-m", "fast"])
+                    .output()
+                    .await;
+            }
+            if forge_db_manager::DatabaseManager::check_port_health(5432, 100).await {
+                #[cfg(windows)]
+                {
+                    let _ = tokio::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/IM", "postgres.exe"])
+                        .output()
+                        .await;
+                }
+            }
+        }
+        "caddy" => {
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_millis(1000),
+                tokio::process::Command::new("C:\\4forge\\runtimes\\caddy\\caddy.exe")
+                    .arg("stop")
+                    .output(),
+            )
+            .await;
+            if !forge_supervisor::PortInspector::is_port_available(80)
+                || !forge_supervisor::PortInspector::is_port_available(2019)
+            {
+                #[cfg(windows)]
+                {
+                    let _ = tokio::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/IM", "caddy.exe"])
+                        .output()
+                        .await;
+                }
+            }
+        }
+        "php" => {
+            #[cfg(windows)]
+            {
+                let _ = tokio::process::Command::new("taskkill")
+                    .args(["/F", "/T", "/IM", "php-cgi.exe"])
+                    .output()
+                    .await;
+            }
+        }
+        "redis" => {
+            let extra_dirs = [std::path::PathBuf::from("C:\\4forge\\runtimes\\redis")];
+            if let Some(cli) =
+                forge_db_manager::DatabaseManager::find_executable("redis-cli", &extra_dirs)
+            {
+                let _ = tokio::process::Command::new(&cli)
+                    .args(["-p", "6379", "shutdown"])
+                    .output()
+                    .await;
+            }
+            if forge_db_manager::DatabaseManager::check_port_health(6379, 100).await {
+                #[cfg(windows)]
+                {
+                    let _ = tokio::process::Command::new("taskkill")
+                        .args(["/F", "/T", "/IM", "redis-server.exe"])
+                        .output()
+                        .await;
+                }
+            }
+        }
+        _ => {}
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn start_service(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    if id == "caddy" {
+    let service_id = id.to_lowercase();
+    if service_id == "caddy" {
         let sites = state.sites.read().await;
         sync_caddyfile(&sites).await;
     }
+    if (service_id == "mariadb" || service_id == "mysql")
+        && forge_db_manager::DatabaseManager::check_port_health(3306, 100).await
+    {
+        return Ok(());
+    }
     state
         .supervisor
-        .start_service(&id)
+        .start_service(&service_id)
         .await
         .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn stop_service(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    state
-        .supervisor
-        .stop_service(&id)
-        .await
-        .map_err(|e| e.to_string())
+    stop_service_graceful(&state, &id).await
 }
 
 #[tauri::command]
 pub async fn restart_service(state: State<'_, AppState>, id: String) -> Result<(), String> {
-    state
-        .supervisor
-        .restart_service(&id)
-        .await
-        .map_err(|e| e.to_string())
+    let _ = stop_service_graceful(&state, &id).await;
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    start_service(state, id).await
 }
 
 #[tauri::command]
@@ -264,7 +407,12 @@ pub async fn toggle_all_services(state: State<'_, AppState>, start: bool) -> Res
         let _ = state.supervisor.start_service("php").await;
         let _ = state.supervisor.start_service("node").await;
     } else {
-        state.supervisor.stop_all().await;
+        let _ = state.supervisor.stop_all().await;
+        let _ = stop_service_graceful(&state, "mariadb").await;
+        let _ = stop_service_graceful(&state, "caddy").await;
+        let _ = stop_service_graceful(&state, "php").await;
+        let _ = stop_service_graceful(&state, "postgresql").await;
+        let _ = stop_service_graceful(&state, "redis").await;
     }
     Ok(())
 }

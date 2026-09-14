@@ -182,7 +182,10 @@ impl ActiveProcess {
                 .await;
             Ok(())
         } else {
-            Err(ProcessError::NotRunning(self.config.name.clone()))
+            let mut status_lock = self.status.write().await;
+            *status_lock = ServiceStatus::Stopped;
+            *self.pid.write().await = None;
+            Ok(())
         }
     }
 

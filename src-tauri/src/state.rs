@@ -308,19 +308,34 @@ fn build_default_services(runtimes_root: &std::path::Path) -> Vec<forge_supervis
             }
         })
         .unwrap_or_else(|| PathBuf::from("cmd.exe"));
-    let mariadb_args = if mariadb_bin.ends_with("cmd.exe") {
-        vec![
-            "/c".to_string(),
-            "echo [mariadb] MySQL / MariaDB mysqld.exe ready for connections on port 3306 (bind: 127.0.0.1) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
-        ]
+    let (mariadb_args, mariadb_cwd) = if mariadb_bin.ends_with("cmd.exe") {
+        (
+            vec![
+                "/c".to_string(),
+                "echo [mariadb] MySQL / MariaDB mysqld.exe ready for connections on port 3306 (bind: 127.0.0.1) & powershell -NoProfile -Command Start-Sleep -Seconds 86400".to_string(),
+            ],
+            None,
+        )
     } else {
-        vec!["--console".to_string()]
+        let base_dir = mariadb_bin
+            .parent()
+            .and_then(|p| p.parent())
+            .map(|p| p.to_path_buf());
+        let mut args = Vec::new();
+        if let Some(ref base) = base_dir {
+            let ini = base.join("my.ini");
+            if ini.is_file() {
+                args.push(format!("--defaults-file={}", ini.display()));
+            }
+        }
+        args.push("--console".to_string());
+        (args, base_dir)
     };
     list.push(forge_supervisor::ProcessConfig {
         name: "mariadb".to_string(),
         program: mariadb_bin,
         args: mariadb_args,
-        current_dir: None,
+        current_dir: mariadb_cwd,
         envs: std::collections::HashMap::new(),
         port: Some(3306),
         auto_restart: true,

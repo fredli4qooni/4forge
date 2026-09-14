@@ -81,7 +81,7 @@ impl SupervisorManager {
         if let Some(proc) = map.get(name) {
             proc.stop().await
         } else {
-            Err(ProcessError::NotRunning(name.to_string()))
+            Ok(())
         }
     }
 

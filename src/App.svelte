@@ -279,11 +279,16 @@
     const svc = services.find((s) => s.id === id);
     if (!svc) return;
     const willStart = svc.status !== "running";
-    if (willStart) await startService(id);
-    else await stopService(id);
-    await new Promise((r) => setTimeout(r, 500));
-    await fetchBackendState(true);
-    showToast(`Service '${svc.name}' ${willStart ? "started" : "stopped"}`);
+    try {
+      if (willStart) await startService(id);
+      else await stopService(id);
+      await new Promise((r) => setTimeout(r, 600));
+      showToast(`Service '${svc.name}' ${willStart ? "started" : "stopped"}`);
+    } catch (e: any) {
+      showToast(`Failed: ${e?.message || e}`);
+    } finally {
+      await fetchBackendState(true);
+    }
   }
 
   async function handleAddSite(): Promise<void> {
