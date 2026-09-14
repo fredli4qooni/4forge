@@ -39,37 +39,39 @@
   } = $props();
 </script>
 
-<header class="h-14 border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between shrink-0 bg-white shadow-xs z-30">
-  <div class="flex items-center gap-2.5 shrink-0">
+<header class="h-14 border-b border-slate-200 px-3 sm:px-4 lg:px-6 flex items-center justify-between shrink-0 bg-white shadow-xs z-30 gap-2">
+  <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
     <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#B44816] to-[#7C2D12] flex items-center justify-center text-white shadow-xs">
       <span class="font-black text-xs tracking-tighter">4F</span>
     </div>
     <div class="flex items-center gap-1.5">
       <span class="font-bold text-sm tracking-tight text-slate-900">4Forge</span>
-      <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-[#94380C] border border-amber-200/60">v0.1.0</span>
+      <span class="hidden xl:inline-flex text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-[#94380C] border border-amber-200/60">v0.1.0</span>
     </div>
   </div>
 
-  <div class="flex-1 flex items-center justify-center min-w-0 px-2 sm:px-4">
-    <nav class="flex items-center gap-0.5 sm:gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/70 shadow-xs">
+  <div class="flex-1 flex items-center justify-center min-w-0 px-1 sm:px-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <nav class="flex items-center gap-0.5 sm:gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/70 shadow-xs shrink-0">
       <button
         onclick={() => onSelectTab("cockpit")}
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'cockpit'
+        title="Cockpit (Dashboard)"
+        class="flex items-center gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150 {activeTab === 'cockpit'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
         <LayoutDashboard class="w-3.5 h-3.5 shrink-0 {activeTab === 'cockpit' ? 'text-[#94380C]' : 'text-slate-400'}" />
-        <span>Cockpit</span>
+        <span class="{activeTab === 'cockpit' ? 'inline' : 'hidden lg:inline'}">Cockpit</span>
       </button>
 
       <button
         onclick={() => onSelectTab("sites")}
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'sites'
+        title="Sites ({sitesCount})"
+        class="flex items-center gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150 {activeTab === 'sites'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
         <Globe class="w-3.5 h-3.5 shrink-0 {activeTab === 'sites' ? 'text-[#94380C]' : 'text-slate-400'}" />
-        <span>Sites</span>
+        <span class="{activeTab === 'sites' ? 'inline' : 'hidden lg:inline'}">Sites</span>
         {#if sitesCount > 0}
           <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full {activeTab === 'sites' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-600'}">
             {sitesCount}
@@ -79,12 +81,13 @@
 
       <button
         onclick={() => onSelectTab("databases")}
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'databases'
+        title="Databases ({databasesCount})"
+        class="flex items-center gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150 {activeTab === 'databases'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
         <Database class="w-3.5 h-3.5 shrink-0 {activeTab === 'databases' ? 'text-[#94380C]' : 'text-slate-400'}" />
-        <span>Databases</span>
+        <span class="{activeTab === 'databases' ? 'inline' : 'hidden lg:inline'}">Databases</span>
         {#if databasesCount > 0}
           <span class="text-[10px] font-mono px-1.5 py-0.2 rounded-full {activeTab === 'databases' ? 'bg-amber-100 text-amber-900' : 'bg-slate-200 text-slate-600'}">
             {databasesCount}
@@ -94,32 +97,35 @@
 
       <button
         onclick={() => onSelectTab("runtimes")}
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'runtimes'
+        title="Runtimes & Versions"
+        class="flex items-center gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150 {activeTab === 'runtimes'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
         <Layers class="w-3.5 h-3.5 shrink-0 {activeTab === 'runtimes' ? 'text-[#94380C]' : 'text-slate-400'}" />
-        <span>Runtimes</span>
+        <span class="{activeTab === 'runtimes' ? 'inline' : 'hidden lg:inline'}">Runtimes</span>
       </button>
 
       <button
         onclick={() => onSelectTab("logs")}
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'logs'
+        title="Realtime Logs"
+        class="flex items-center gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150 {activeTab === 'logs'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
         <ScrollText class="w-3.5 h-3.5 shrink-0 {activeTab === 'logs' ? 'text-[#94380C]' : 'text-slate-400'}" />
-        <span>Logs</span>
+        <span class="{activeTab === 'logs' ? 'inline' : 'hidden lg:inline'}">Logs</span>
       </button>
 
       <button
         onclick={() => onSelectTab("terminal")}
-        class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-medium transition-all {activeTab === 'terminal'
+        title="Integrated Terminal"
+        class="flex items-center gap-1.5 px-2 sm:px-2.5 lg:px-3 py-1 rounded-lg text-xs font-medium transition-all duration-150 {activeTab === 'terminal'
           ? 'bg-white text-slate-900 shadow-xs font-semibold'
           : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'}"
       >
         <Terminal class="w-3.5 h-3.5 shrink-0 {activeTab === 'terminal' ? 'text-[#94380C]' : 'text-slate-400'}" />
-        <span>Terminal</span>
+        <span class="{activeTab === 'terminal' ? 'inline' : 'hidden lg:inline'}">Terminal</span>
       </button>
     </nav>
   </div>
