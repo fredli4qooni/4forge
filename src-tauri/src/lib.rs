@@ -15,6 +15,8 @@
 pub mod commands;
 pub mod state;
 
+use tauri::Manager;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = state::AppState::new().expect("failed to initialize 4Forge app state");
@@ -22,6 +24,13 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(app_state)
+        .setup(|app| {
+            for (_label, window) in app.webview_windows() {
+                let icon = tauri::include_image!("icons/icon.png");
+                let _ = window.set_icon(icon);
+            }
+            Ok(())
+        })
         .on_window_event(move |_window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let sup = supervisor.clone();
