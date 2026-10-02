@@ -40,15 +40,15 @@
 </script>
 
 <header class="h-14 border-b border-slate-200 px-3 sm:px-4 lg:px-6 flex items-center justify-between shrink-0 bg-white shadow-xs z-30 gap-2">
-  <div class="flex items-center gap-2 sm:gap-2.5 shrink-0">
-    <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-[#B44816] to-[#7C2D12] flex items-center justify-center text-white shadow-xs">
-      <span class="font-black text-xs tracking-tighter">4F</span>
-    </div>
-    <div class="flex items-center gap-1.5">
-      <span class="font-bold text-sm tracking-tight text-slate-900">4Forge</span>
-      <span class="hidden xl:inline-flex text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-[#94380C] border border-amber-200/60">v0.1.0</span>
-    </div>
-  </div>
+  <button
+    type="button"
+    onclick={() => onSelectTab("cockpit")}
+    class="flex items-center gap-2 sm:gap-2.5 shrink-0 hover:opacity-90 transition-opacity cursor-pointer text-left focus:outline-none"
+    title="4Forge Cockpit"
+  >
+    <img src="/logos/4forge-logo-new.svg" alt="4Forge" class="h-8 w-auto object-contain" />
+    <span class="hidden xl:inline-flex text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-50 text-[#94380C] border border-amber-200/60">v0.1.0</span>
+  </button>
 
   <div class="flex-1 flex items-center justify-center min-w-0 px-1 sm:px-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
     <nav class="flex items-center gap-0.5 sm:gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/70 shadow-xs shrink-0">
